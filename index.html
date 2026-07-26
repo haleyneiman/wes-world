@@ -1,0 +1,1322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+<meta name="apple-mobile-web-app-title" content="Wes World"/>
+<meta name="theme-color" content="#C97B5A"/>
+<title>Wes World 🌍</title>
+<link rel="manifest" href="/manifest.json"/>
+<link rel="apple-touch-icon" href="/icon-192.png"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;0,9..144,700;1,9..144,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --cream:#FDF6EC;--warm-white:#FFFBF5;--sand:#E8D9C5;
+  --blush:#F2B8A0;--terracotta:#C97B5A;--sage:#8BAF8D;
+  --sage-light:#C5DABC;--sky:#A8C5DA;--sky-light:#D6EAF4;
+  --lavender:#C4B5D4;--butter:#F5E6A3;--butter-dark:#D4C06A;
+  --ink:#2C1F14;--ink-soft:#5C4A36;--ink-faint:#9B8B7A;
+  --radius:20px;--radius-sm:12px;
+  --green:#2E7D32;--red:#C0392B;--amber:#B8720A;
+}
+html,body{height:100%;background:var(--cream);font-family:'DM Sans',sans-serif;color:var(--ink);
+  -webkit-tap-highlight-color:transparent;overscroll-behavior:none;}
+.app-wrapper{min-height:100vh;background:var(--cream);
+  background-image:radial-gradient(ellipse at 20% 10%,#F2E4D680 0%,transparent 50%),
+  radial-gradient(ellipse at 80% 90%,#C5DABC40 0%,transparent 50%);}
+
+/* SYNC INDICATOR */
+.sync-bar{position:fixed;top:0;left:0;right:0;height:3px;background:var(--sage);
+  transform:scaleX(0);transform-origin:left;transition:transform 0.4s;z-index:999;}
+.sync-bar.active{transform:scaleX(1);}
+.sync-dot{width:8px;height:8px;border-radius:50%;background:var(--sage);
+  display:inline-block;margin-right:5px;animation:pulse 1.4s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+
+/* LOADING SCREEN */
+.loading-screen{position:fixed;inset:0;background:var(--cream);display:flex;
+  flex-direction:column;align-items:center;justify-content:center;z-index:1000;
+  font-family:'Fraunces',serif;}
+.loading-screen.hidden{display:none;}
+.loading-logo{font-size:32px;color:var(--terracotta);font-weight:700;margin-bottom:8px;}
+.loading-logo span{color:var(--ink-soft);font-weight:300;font-style:italic;}
+.loading-sub{font-size:13px;color:var(--ink-faint);font-family:'DM Sans',sans-serif;margin-top:4px;}
+.loading-spinner{width:32px;height:32px;border:3px solid var(--sand);
+  border-top-color:var(--terracotta);border-radius:50%;animation:spin 0.8s linear infinite;margin-top:20px;}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* NAV */
+.nav{position:sticky;top:0;z-index:100;background:rgba(253,246,236,0.94);
+  backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+  border-bottom:1.5px solid var(--sand);
+  padding:env(safe-area-inset-top) 16px 0;display:flex;align-items:center;}
+.nav-inner{display:flex;align-items:center;width:100%;padding-bottom:0;}
+.nav-logo{font-family:'Fraunces',serif;font-size:20px;font-weight:700;color:var(--terracotta);
+  padding:12px 0;margin-right:12px;letter-spacing:-0.5px;white-space:nowrap;flex-shrink:0;}
+.nav-logo span{color:var(--ink-soft);font-weight:300;font-style:italic;}
+.nav-sync{font-size:10px;color:var(--ink-faint);display:flex;align-items:center;
+  margin-right:10px;white-space:nowrap;flex-shrink:0;}
+.nav-tabs{display:flex;gap:2px;overflow-x:auto;-webkit-overflow-scrolling:touch;
+  scrollbar-width:none;padding:8px 0;flex:1;}
+.nav-tabs::-webkit-scrollbar{display:none;}
+.nav-tab{padding:7px 12px;border-radius:999px;font-size:12px;font-weight:500;cursor:pointer;
+  border:none;background:transparent;color:var(--ink-faint);transition:all 0.18s;
+  white-space:nowrap;-webkit-appearance:none;}
+.nav-tab.active{background:var(--terracotta);color:white;}
+.nav-tab:active:not(.active){background:var(--sand);}
+
+/* PAGE */
+.page{max-width:920px;margin:0 auto;padding:24px 16px calc(32px + env(safe-area-inset-bottom));}
+.section-title{font-family:'Fraunces',serif;font-size:25px;font-weight:600;
+  color:var(--ink);margin-bottom:4px;letter-spacing:-0.5px;}
+.section-sub{font-size:13px;color:var(--ink-faint);margin-bottom:22px;}
+
+/* CARDS */
+.card{background:var(--warm-white);border:1.5px solid var(--sand);
+  border-radius:var(--radius);padding:18px;margin-bottom:14px;}
+.card-title{font-family:'Fraunces',serif;font-size:16px;font-weight:600;color:var(--ink);
+  margin-bottom:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.card-action{margin-left:auto;font-size:12px;color:var(--terracotta);cursor:pointer;
+  font-weight:500;text-decoration:underline;white-space:nowrap;}
+
+/* FORMS */
+.log-form{display:flex;flex-wrap:wrap;gap:9px;align-items:flex-end;}
+.field{display:flex;flex-direction:column;gap:4px;flex:1;min-width:95px;}
+.field label{font-size:10px;font-weight:500;color:var(--ink-faint);
+  text-transform:uppercase;letter-spacing:0.5px;}
+.field input,.field select{
+  padding:11px 12px;border-radius:var(--radius-sm);border:1.5px solid var(--sand);
+  background:var(--cream);font-family:'DM Sans',sans-serif;font-size:16px;color:var(--ink);
+  outline:none;transition:border-color 0.2s;-webkit-appearance:none;appearance:none;width:100%;}
+.field input:focus,.field select:focus{border-color:var(--terracotta);}
+.btn{padding:11px 20px;border-radius:999px;border:none;cursor:pointer;
+  font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;
+  transition:background 0.18s;white-space:nowrap;-webkit-appearance:none;}
+.btn-primary{background:var(--terracotta);color:white;}
+.btn-primary:active{background:#b5694a;}
+.btn-sage{background:var(--sage);color:white;}
+.btn-sky{background:var(--sky);color:var(--ink);}
+
+/* TOAST */
+.toast{position:fixed;bottom:calc(28px + env(safe-area-inset-bottom));left:50%;
+  transform:translateX(-50%) translateY(16px);background:var(--ink);color:white;
+  padding:10px 20px;border-radius:999px;font-size:13px;font-weight:500;
+  opacity:0;transition:all 0.28s;z-index:998;white-space:nowrap;pointer-events:none;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* LOG LIST */
+.log-list{display:flex;flex-direction:column;gap:7px;margin-top:4px;}
+.log-item{display:flex;align-items:center;gap:10px;padding:10px 12px;
+  border-radius:var(--radius-sm);background:var(--cream);border:1px solid var(--sand);
+  font-size:13px;color:var(--ink-soft);}
+.log-icon{font-size:17px;flex-shrink:0;}
+.log-detail{flex:1;min-width:0;}
+.log-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.log-time{font-size:10px;color:var(--ink-faint);margin-top:2px;}
+.log-who{font-size:9.5px;color:var(--terracotta);font-weight:500;}
+.log-del{font-size:20px;color:var(--ink-faint);padding:0 2px;flex-shrink:0;
+  line-height:1;cursor:pointer;opacity:0.6;}
+.log-badge{padding:2px 8px;border-radius:999px;font-size:10px;font-weight:500;flex-shrink:0;}
+.badge-bottle{background:#FFE8D6;color:#8A4A28;}
+.badge-breast{background:#FFD6E4;color:#8A2850;}
+.badge-solid{background:var(--sage-light);color:#3A6640;}
+.badge-wet{background:var(--sky-light);color:#4A7A96;}
+.badge-dirty{background:#F5E6C3;color:#8A6A20;}
+.badge-both{background:var(--lavender);color:#5A4478;}
+
+/* STATS */
+.stats-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
+.stat-pill{flex:1;min-width:80px;padding:11px 12px;background:var(--warm-white);
+  border:1.5px solid var(--sand);border-radius:var(--radius);text-align:center;}
+.stat-pill .num{font-family:'Fraunces',serif;font-size:21px;font-weight:700;
+  color:var(--terracotta);line-height:1;}
+.stat-pill .lbl{font-size:9px;color:var(--ink-faint);margin-top:3px;
+  text-transform:uppercase;letter-spacing:0.4px;}
+.stat-pill.on-target{border-color:var(--sage);background:#EFF7EF;}
+.stat-pill.on-target .num{color:var(--green);}
+.stat-pill.below-target{border-color:var(--blush);background:#FFF4EF;}
+.stat-pill.below-target .num{color:var(--red);}
+.stat-pill.above-target{border-color:var(--butter-dark);background:#FFFBE8;}
+.stat-pill.above-target .num{color:var(--amber);}
+
+/* TARGET BAR */
+.target-bar-track{height:14px;border-radius:999px;background:var(--sand);
+  position:relative;overflow:hidden;}
+.target-bar-range{position:absolute;top:0;height:100%;
+  background:rgba(139,175,141,0.38);border-radius:999px;}
+.target-bar-fill{position:absolute;top:0;height:100%;border-radius:999px;transition:width 0.35s;}
+
+/* WES HEADER */
+.wes-header{display:flex;align-items:center;gap:14px;padding:16px 18px;border-radius:var(--radius);
+  background:linear-gradient(135deg,#C97B5A 0%,#D98E6E 100%);color:white;margin-bottom:22px;}
+.wes-avatar{width:52px;height:52px;border-radius:50%;background:rgba(255,255,255,0.22);
+  display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;}
+.wes-name{font-family:'Fraunces',serif;font-size:19px;font-weight:700;letter-spacing:-0.5px;}
+.wes-meta{font-size:10.5px;opacity:0.88;margin-top:3px;line-height:1.7;}
+.wes-badge{display:inline-block;background:rgba(255,255,255,0.2);border-radius:999px;
+  padding:1px 7px;font-size:9.5px;margin-right:3px;}
+.wes-qs{margin-left:auto;display:flex;gap:14px;flex-shrink:0;}
+.wes-q{text-align:center;}
+.wes-q .v{font-family:'Fraunces',serif;font-size:15px;font-weight:700;}
+.wes-q .k{font-size:8.5px;opacity:0.8;text-transform:uppercase;letter-spacing:0.4px;}
+
+/* CONFIG */
+.config-box{margin-bottom:16px;padding:13px;background:var(--cream);
+  border-radius:var(--radius-sm);border:1px solid var(--sand);}
+.config-box-title{font-size:12px;font-weight:500;color:var(--ink-soft);margin-bottom:10px;}
+.config-info{margin-top:8px;padding:8px 10px;background:var(--sky-light);
+  border-radius:8px;font-size:11px;color:#2A5A76;line-height:1.5;}
+
+/* CHART */
+.chart-wrap{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+svg.chart{display:block;}
+.chart-legend{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;
+  font-size:10.5px;color:var(--ink-faint);}
+.chart-legend span{display:flex;align-items:center;gap:4px;}
+
+/* TOGGLE */
+.toggle-row{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px;}
+.toggle-btn{padding:5px 12px;border-radius:999px;font-size:11px;font-weight:500;cursor:pointer;
+  border:1.5px solid var(--sand);background:transparent;color:var(--ink-soft);transition:all 0.18s;}
+.toggle-btn.active{background:var(--ink);color:white;border-color:var(--ink);}
+
+/* MILESTONES */
+.milestone-grid{display:flex;flex-direction:column;gap:7px;}
+.milestone-item{display:flex;align-items:center;gap:11px;padding:11px 13px;
+  border-radius:var(--radius-sm);border:1.5px solid var(--sand);
+  background:var(--cream);cursor:pointer;}
+.milestone-item.achieved{background:#EFF7EF;border-color:var(--sage);}
+.milestone-item.overdue{border-color:#F2B8A0;}
+.milestone-check{width:24px;height:24px;border-radius:50%;border:2px solid var(--sand);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;}
+.milestone-item.achieved .milestone-check{background:var(--sage);border-color:var(--sage);color:white;}
+.milestone-item.overdue .milestone-check{border-color:var(--terracotta);}
+.milestone-info{flex:1;min-width:0;}
+.milestone-name{font-size:13px;font-weight:500;color:var(--ink);}
+.milestone-age{font-size:10.5px;color:var(--ink-faint);margin-top:1px;}
+.milestone-item.overdue .milestone-age{color:var(--terracotta);}
+.milestone-tag{font-size:9.5px;padding:2px 7px;border-radius:999px;font-weight:500;flex-shrink:0;}
+.tag-motor{background:var(--sky-light);color:#3A6A86;}
+.tag-social{background:#FFE8D6;color:#8A4020;}
+.tag-language{background:var(--sage-light);color:#2A5A2E;}
+.tag-cognitive{background:var(--lavender);color:#4A3468;}
+
+/* ACTIVITIES */
+.activity-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:9px;}
+.activity-card{padding:13px;border-radius:var(--radius);border:1.5px solid var(--sand);background:var(--warm-white);}
+.activity-icon{font-size:22px;margin-bottom:5px;}
+.activity-name{font-size:13px;font-weight:500;color:var(--ink);margin-bottom:2px;}
+.activity-desc{font-size:11px;color:var(--ink-faint);line-height:1.5;}
+.activity-age{font-size:9.5px;color:var(--terracotta);margin-top:5px;font-weight:500;}
+
+/* INFO / NOTICE */
+.info-pill{padding:9px 13px;border-radius:var(--radius-sm);background:var(--sky-light);
+  color:#2A5A76;font-size:11px;margin-bottom:14px;line-height:1.5;}
+.notice{padding:9px 13px;border-radius:var(--radius-sm);background:var(--butter);
+  color:#5A4010;font-size:11px;margin-bottom:14px;line-height:1.5;}
+
+/* WHO IS LOGGING */
+.logger-name-wrap{padding:10px 14px;background:var(--sand);border-radius:var(--radius-sm);
+  margin-bottom:14px;display:flex;align-items:center;gap:10px;font-size:12px;}
+.logger-name-wrap select{background:transparent;border:none;font-size:12px;
+  font-weight:600;color:var(--ink);outline:none;-webkit-appearance:none;}
+
+/* OFFLINE */
+.offline-badge{display:none;position:fixed;top:calc(8px + env(safe-area-inset-top));
+  right:12px;background:#C0392B;color:white;border-radius:999px;
+  padding:3px 10px;font-size:10px;font-weight:600;z-index:200;}
+.offline-badge.show{display:block;}
+
+/* LOGIN SCREEN */
+.login-screen{position:fixed;inset:0;background:var(--cream);display:none;
+  flex-direction:column;align-items:center;justify-content:center;z-index:1001;padding:24px;
+  background-image:radial-gradient(ellipse at 20% 10%,#F2E4D680 0%,transparent 50%),
+  radial-gradient(ellipse at 80% 90%,#C5DABC40 0%,transparent 50%);}
+.login-screen.visible{display:flex;}
+.login-card{width:100%;max-width:360px;background:var(--warm-white);
+  border:1.5px solid var(--sand);border-radius:var(--radius);padding:28px 24px;}
+.login-logo{font-family:'Fraunces',serif;font-size:30px;color:var(--terracotta);
+  font-weight:700;text-align:center;margin-bottom:4px;}
+.login-logo span{color:var(--ink-soft);font-weight:300;font-style:italic;}
+.login-sub{font-size:12.5px;color:var(--ink-faint);text-align:center;margin-bottom:22px;}
+.login-field{margin-bottom:12px;}
+.login-field label{display:block;font-size:10px;font-weight:500;color:var(--ink-faint);
+  text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;}
+.login-field input{width:100%;padding:12px 14px;border-radius:var(--radius-sm);
+  border:1.5px solid var(--sand);background:var(--cream);font-family:'DM Sans',sans-serif;
+  font-size:16px;color:var(--ink);outline:none;-webkit-appearance:none;}
+.login-field input:focus{border-color:var(--terracotta);}
+.login-btn{width:100%;padding:13px;border-radius:999px;border:none;cursor:pointer;
+  background:var(--terracotta);color:white;font-family:'DM Sans',sans-serif;
+  font-size:15px;font-weight:600;margin-top:6px;-webkit-appearance:none;}
+.login-btn:active{background:#b5694a;}
+.login-error{display:none;margin-top:12px;padding:10px 13px;border-radius:var(--radius-sm);
+  background:#FDECEA;color:#B83228;font-size:12px;line-height:1.5;}
+.login-error.visible{display:block;}
+.nav-signout{font-size:11px;color:var(--ink-faint);cursor:pointer;padding:6px 8px;
+  flex-shrink:0;white-space:nowrap;}
+
+@media(max-width:480px){
+  .wes-qs{display:none;}
+  .activity-grid{grid-template-columns:1fr 1fr;}
+}
+</style>
+</head>
+<body>
+
+<div class="loading-screen" id="loadingScreen">
+  <div class="loading-logo">Wes<span>World</span> 🌍</div>
+  <div class="loading-sub" id="loadingMsg">Syncing with Firebase…</div>
+  <div class="loading-spinner"></div>
+</div>
+
+<div class="login-screen" id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">Wes<span>World</span> 🌍</div>
+    <div class="login-sub">Sign in to track Wesley together</div>
+    <div class="login-field">
+      <label>Email</label>
+      <input type="email" id="loginEmail" inputmode="email" autocomplete="username" placeholder="you@example.com"/>
+    </div>
+    <div class="login-field">
+      <label>Password</label>
+      <input type="password" id="loginPassword" autocomplete="current-password" placeholder="••••••••"/>
+    </div>
+    <button class="login-btn" onclick="doSignIn()">Sign In</button>
+    <div class="login-error" id="loginError"></div>
+  </div>
+</div>
+
+<div class="sync-bar" id="syncBar"></div>
+<div class="offline-badge" id="offlineBadge">● Offline</div>
+<div class="toast" id="toast"></div>
+
+<div class="app-wrapper">
+  <nav class="nav">
+    <div class="nav-inner">
+      <div class="nav-logo">Wes<span>World</span> 🌍</div>
+      <div class="nav-sync" id="navSync"></div>
+      <div class="nav-tabs" id="navTabs"></div>
+      <div class="nav-signout" onclick="doSignOut()" title="Sign out">⎋</div>
+    </div>
+  </nav>
+  <div class="page" id="pageContent"></div>
+</div>
+
+<!-- Firebase SDK (compat) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<script>
+'use strict';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FIREBASE INIT
+// ─────────────────────────────────────────────────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyB-Vc52KWlvVUkzUR5tnxfPch9EdFd3Wbk",
+  authDomain: "wes-world-2b267.firebaseapp.com",
+  databaseURL: "https://wes-world-2b267-default-rtdb.firebaseio.com",
+  projectId: "wes-world-2b267",
+  storageBucket: "wes-world-2b267.firebasestorage.app",
+  messagingSenderId: "937840280028",
+  appId: "1:937840280028:web:3901d5cdc74b74ee9b0f19"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const auth = firebase.auth();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AUTH — gate the whole app behind sign-in
+// ─────────────────────────────────────────────────────────────────────────────
+let listenersAttached = false;
+
+auth.onAuthStateChanged(user => {
+  const login = document.getElementById('loginScreen');
+  const loading = document.getElementById('loadingScreen');
+  if (user) {
+    login.classList.remove('visible');
+    if (!listenersAttached) {
+      loading.classList.remove('hidden');
+      document.getElementById('loadingMsg').textContent = 'Syncing with Firebase…';
+      listenersAttached = true;
+      initFirebase();
+    }
+  } else {
+    firebaseReady = false;
+    loading.classList.add('hidden');
+    login.classList.add('visible');
+  }
+});
+
+function doSignIn() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const pw = document.getElementById('loginPassword').value;
+  const err = document.getElementById('loginError');
+  err.classList.remove('visible');
+  if (!email || !pw) {
+    err.textContent = 'Enter your email and password.';
+    err.classList.add('visible');
+    return;
+  }
+  auth.signInWithEmailAndPassword(email, pw).catch(e => {
+    err.textContent = friendlyAuthError(e);
+    err.classList.add('visible');
+  });
+}
+
+function friendlyAuthError(e) {
+  const code = e && e.code || '';
+  if (code.includes('wrong-password') || code.includes('invalid-credential') || code.includes('invalid-login-credentials'))
+    return 'Incorrect email or password.';
+  if (code.includes('user-not-found')) return 'No account found for that email.';
+  if (code.includes('too-many-requests')) return 'Too many attempts — wait a minute and try again.';
+  if (code.includes('network-request-failed')) return 'No connection — check your internet and try again.';
+  return 'Sign-in failed: ' + (e && e.message || 'unknown error');
+}
+
+function doSignOut() {
+  if (confirm('Sign out of Wes World?')) auth.signOut();
+}
+
+// Allow pressing Enter to sign in
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.getElementById('loginScreen').classList.contains('visible')) doSignIn();
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SERVICE WORKER
+// ─────────────────────────────────────────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(()=>{}));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// OFFLINE DETECTION
+// ─────────────────────────────────────────────────────────────────────────────
+function updateOnline() {
+  document.getElementById('offlineBadge').classList.toggle('show', !navigator.onLine);
+}
+window.addEventListener('online', updateOnline);
+window.addEventListener('offline', updateOnline);
+updateOnline();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TOAST
+// ─────────────────────────────────────────────────────────────────────────────
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SYNC INDICATOR
+// ─────────────────────────────────────────────────────────────────────────────
+let syncTimer;
+function flashSync() {
+  const bar = document.getElementById('syncBar');
+  bar.classList.add('active');
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(() => bar.classList.remove('active'), 600);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CONSTANTS & AGE
+// ─────────────────────────────────────────────────────────────────────────────
+const BIRTH = new Date('2026-02-28');
+const BIRTH_GA_WEEKS = 30, BIRTH_GA_DAYS = 3, NICU_DAYS = 57;
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function getAges() {
+  const now = new Date();
+  const chronoDays = Math.floor((now - BIRTH) / 864e5);
+  const chronoWeeks = Math.floor(chronoDays/7), chronoRemDays = chronoDays%7;
+  const totalGADays = BIRTH_GA_WEEKS*7 + BIRTH_GA_DAYS + chronoDays;
+  const corrDays = Math.max(0, totalGADays - 280);
+  const corrWeeks = Math.floor(corrDays/7), corrRemDays = corrDays%7;
+  const curGAWeeks = Math.floor(totalGADays/7), curGARemDays = totalGADays%7;
+  const discharge = new Date(BIRTH); discharge.setDate(BIRTH.getDate() + NICU_DAYS);
+  return {chronoWeeks,chronoRemDays,corrWeeks,corrRemDays,curGAWeeks,curGARemDays,discharge};
+}
+
+function nowStr() { return new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); }
+function todayStr() { const d=new Date(); return MONTHS[d.getMonth()]+' '+d.getDate(); }
+const ozToMl = oz => oz*29.5735;
+const mlToOz = ml => ml/29.5735;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GROWTH CURVES
+// ─────────────────────────────────────────────────────────────────────────────
+const WHO_BOYS = {
+  0:{p3:2.50,p10:2.84,p25:3.09,p50:3.35,p75:3.63,p90:3.92,p97:4.21},
+  1:{p3:3.36,p10:3.77,p25:4.12,p50:4.47,p75:4.87,p90:5.23,p97:5.58},
+  2:{p3:4.32,p10:4.80,p25:5.23,p50:5.67,p75:6.15,p90:6.60,p97:7.05},
+  3:{p3:5.03,p10:5.57,p25:6.06,p50:6.57,p75:7.11,p90:7.62,p97:8.10},
+  4:{p3:5.61,p10:6.19,p25:6.74,p50:7.30,p75:7.90,p90:8.45,p97:8.99},
+  5:{p3:6.05,p10:6.67,p25:7.25,p50:7.84,p75:8.49,p90:9.07,p97:9.65},
+  6:{p3:6.44,p10:7.09,p25:7.71,p50:8.34,p75:9.02,p90:9.65,p97:10.27},
+  7:{p3:6.76,p10:7.44,p25:8.09,p50:8.76,p75:9.48,p90:10.14,p97:10.79},
+  8:{p3:7.03,p10:7.73,p25:8.41,p50:9.10,p75:9.86,p90:10.56,p97:11.24},
+  9:{p3:7.26,p10:7.99,p25:8.69,p50:9.41,p75:10.19,p90:10.92,p97:11.63},
+  10:{p3:7.47,p10:8.22,p25:8.95,p50:9.69,p75:10.50,p90:11.26,p97:12.00},
+  11:{p3:7.65,p10:8.43,p25:9.18,p50:9.95,p75:10.79,p90:11.58,p97:12.34},
+  12:{p3:7.82,p10:8.62,p25:9.39,p50:10.20,p75:11.07,p90:11.88,p97:12.67},
+};
+const FENTON_BOYS = {
+  22:{p3:0.36,p10:0.42,p50:0.50,p90:0.59,p97:0.65},
+  23:{p3:0.43,p10:0.50,p50:0.60,p90:0.70,p97:0.78},
+  24:{p3:0.52,p10:0.60,p50:0.72,p90:0.84,p97:0.93},
+  25:{p3:0.62,p10:0.72,p50:0.85,p90:1.00,p97:1.10},
+  26:{p3:0.74,p10:0.85,p50:1.01,p90:1.18,p97:1.30},
+  27:{p3:0.87,p10:1.00,p50:1.19,p90:1.38,p97:1.52},
+  28:{p3:1.01,p10:1.17,p50:1.38,p90:1.61,p97:1.77},
+  29:{p3:1.18,p10:1.36,p50:1.60,p90:1.87,p97:2.06},
+  30:{p3:1.37,p10:1.57,p50:1.85,p90:2.16,p97:2.37},
+  31:{p3:1.58,p10:1.82,p50:2.13,p90:2.48,p97:2.73},
+  32:{p3:1.81,p10:2.09,p50:2.44,p90:2.83,p97:3.12},
+  33:{p3:2.07,p10:2.38,p50:2.78,p90:3.22,p97:3.54},
+  34:{p3:2.34,p10:2.69,p50:3.14,p90:3.63,p97:3.99},
+  35:{p3:2.62,p10:3.02,p50:3.51,p90:4.05,p97:4.45},
+  36:{p3:2.91,p10:3.35,p50:3.88,p90:4.47,p97:4.91},
+  37:{p3:3.08,p10:3.54,p50:4.07,p90:4.67,p97:5.12},
+  38:{p3:3.22,p10:3.69,p50:4.24,p90:4.84,p97:5.30},
+  39:{p3:3.32,p10:3.81,p50:4.37,p90:4.99,p97:5.47},
+  40:{p3:3.39,p10:3.89,p50:4.47,p90:5.10,p97:5.60},
+  41:{p3:3.44,p10:3.95,p50:4.54,p90:5.19,p97:5.70},
+  42:{p3:3.47,p10:3.99,p50:4.59,p90:5.24,p97:5.76},
+  43:{p3:3.48,p10:4.01,p50:4.61,p90:5.27,p97:5.79},
+  44:{p3:3.67,p10:4.22,p50:4.86,p90:5.56,p97:6.11},
+  46:{p3:4.02,p10:4.62,p50:5.32,p90:6.09,p97:6.68},
+  48:{p3:4.38,p10:5.04,p50:5.80,p90:6.63,p97:7.27},
+  50:{p3:4.73,p10:5.44,p50:6.27,p90:7.16,p97:7.85},
+};
+
+function getPct(kg,months){
+  const keys=Object.keys(WHO_BOYS).map(Number).sort((a,b)=>a-b);
+  let k=keys[0]; for(const x of keys) if(x<=months) k=x;
+  const p=WHO_BOYS[k];
+  if(kg<=p.p3)return'<3rd';if(kg<=p.p10)return'3–10th';
+  if(kg<=p.p25)return'10–25th';if(kg<=p.p50)return'25–50th';
+  if(kg<=p.p75)return'50–75th';if(kg<=p.p90)return'75–90th';
+  if(kg<=p.p97)return'90–97th';return'>97th';
+}
+function getFentonPct(kg,gaWeeks){
+  const keys=Object.keys(FENTON_BOYS).map(Number).sort((a,b)=>a-b);
+  let k=keys[0]; for(const x of keys) if(x<=gaWeeks) k=x;
+  const p=FENTON_BOYS[k];
+  if(!p)return'N/A';
+  if(kg<=p.p3)return'<3rd';if(kg<=p.p10)return'3–10th';
+  if(kg<=p.p50)return'10–50th';if(kg<=p.p90)return'50–90th';
+  if(kg<=p.p97)return'90–97th';return'>97th';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LOCAL UI STATE (not synced — per-device preferences)
+// ─────────────────────────────────────────────────────────────────────────────
+let ui = {
+  tab: 'feed',
+  loggerName: localStorage.getItem('wesworld-logger') || 'Mom',
+  feedType: 'bottle', feedAmt: '', feedUnit: 'oz', feedDuration: '',
+  diaperType: 'wet',
+  sleepStart: '', sleepEnd: '', sleepType: 'night',
+  weightInput: '', weightUnit: 'lbs',
+  showConfig: false,
+  growthMode: 'fenton',
+  msFilter: 'all',
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SHARED STATE (synced via Firebase)
+// ─────────────────────────────────────────────────────────────────────────────
+let shared = {
+  feedLogs: [],
+  diaperLogs: [],
+  sleepLogs: [],
+  weightLogs: [
+    {date:'Feb 28',kg:1.55,lbs:3.4,gaWeeks:30,corrMonths:0,by:'NICU'},
+    {date:'Mar 10',kg:1.80,lbs:3.97,gaWeeks:31.5,corrMonths:0,by:'NICU'},
+    {date:'Mar 21',kg:2.10,lbs:4.63,gaWeeks:33,corrMonths:0,by:'NICU'},
+    {date:'Apr 1', kg:2.50,lbs:5.51,gaWeeks:34.5,corrMonths:0,by:'NICU'},
+    {date:'Apr 15',kg:2.90,lbs:6.39,gaWeeks:36.5,corrMonths:0,by:'NICU'},
+    {date:'Apr 26',kg:3.10,lbs:6.83,gaWeeks:38,corrMonths:0.3,by:'NICU'},
+    {date:'May 16',kg:3.20,lbs:7.05,gaWeeks:41,corrMonths:0.7,by:'Clinic'},
+  ],
+  targetWeightKg: 3.2, targetLowMlKg: 135, targetHighMlKg: 160,
+  achieved: {},       // {id: dateString}
+};
+
+let firebaseReady = false;
+let initialLoadDone = false;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FIREBASE LISTENERS — real-time sync
+// ─────────────────────────────────────────────────────────────────────────────
+function initFirebase() {
+  const root = db.ref('wesworld');
+
+  // Listen for all shared data changes
+  root.on('value', snapshot => {
+    handleSnapshot(snapshot);
+  }, error => {
+    // Permission denied or other read failure — show it instead of hanging
+    document.getElementById('loadingMsg').innerHTML =
+      '⚠️ Could not read the database:<br><strong>' + (error && error.message || error) + '</strong><br>' +
+      '<span style="font-size:11px">Check the Realtime Database rules in your Firebase console.</span>';
+    const spinner = document.querySelector('.loading-spinner');
+    if (spinner) spinner.style.display = 'none';
+  });
+
+  // Connection state
+  db.ref('.info/connected').on('value', snap => {
+    const connected = snap.val();
+    document.getElementById('navSync').innerHTML = connected
+      ? `<span class="sync-dot" style="background:var(--sage)"></span>Live`
+      : `<span class="sync-dot" style="background:var(--red)"></span>Offline`;
+    document.getElementById('offlineBadge').classList.toggle('show', !connected);
+  });
+}
+
+function handleSnapshot(snapshot) {
+    const data = snapshot.val();
+    if (data) {
+      if (data.feedLogs) shared.feedLogs = objToArr(data.feedLogs);
+      if (data.diaperLogs) shared.diaperLogs = objToArr(data.diaperLogs);
+      if (data.sleepLogs) shared.sleepLogs = objToArr(data.sleepLogs);
+      if (data.weightLogs) shared.weightLogs = objToArr(data.weightLogs);
+      if (data.targets) {
+        shared.targetWeightKg = data.targets.weightKg ?? shared.targetWeightKg;
+        shared.targetLowMlKg = data.targets.lowMlKg ?? shared.targetLowMlKg;
+        shared.targetHighMlKg = data.targets.highMlKg ?? shared.targetHighMlKg;
+        ui.showConfig && (ui.showConfig = false);
+      }
+      if (data.achieved) shared.achieved = data.achieved;
+    }
+
+    // First load: seed feed data if empty
+    if (!initialLoadDone) {
+      initialLoadDone = true;
+      if (!data || !data.feedLogs) {
+        const seeds = makeSeedFeeds();
+        seeds.forEach(f => db.ref('wesworld/feedLogs').push(f));
+      }
+      document.getElementById('loadingScreen').classList.add('hidden');
+      firebaseReady = true;
+    }
+
+    flashSync();
+    render();
+}
+
+// Convert Firebase object (keyed by push ID) to sorted array
+function objToArr(obj) {
+  if (!obj) return [];
+  return Object.entries(obj)
+    .map(([key, val]) => ({...val, _key: key}))
+    .sort((a,b) => (b.ts||0) - (a.ts||0));  // newest first
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SEED DATA
+// ─────────────────────────────────────────────────────────────────────────────
+function makeSeedFeeds() {
+  const logs = [];
+  for (let d=13; d>=1; d--) {
+    const dt = new Date(); dt.setDate(dt.getDate()-d);
+    const dateStr = MONTHS[dt.getMonth()]+' '+dt.getDate();
+    const base = 2.3 + (13-d)*0.08;
+    ['7:00 AM','10:00 AM','1:00 PM','4:00 PM','7:00 PM','10:30 PM'].forEach(time => {
+      logs.push({type:'bottle',amt:Math.round((base+Math.random()*0.9)*10)/10,
+        date:dateStr,time,by:'Seed',ts:Date.now()-d*86400000});
+    });
+  }
+  return logs;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ANALYTICS
+// ─────────────────────────────────────────────────────────────────────────────
+function getDailyOz() {
+  const map = {}, order = [];
+  shared.feedLogs.forEach(f => {
+    if (!map[f.date]) { map[f.date]=0; order.push(f.date); }
+    if (f.type!=='breast') map[f.date] += f.amt||0;
+  });
+  const seen = new Set();
+  return order.filter(d=>{ const r=!seen.has(d); seen.add(d); return r; })
+    .map(d=>({date:d,oz:Math.round(map[d]*10)/10})).reverse();
+}
+function getRollingAvg(daily, w=7) {
+  return daily.map((d,i)=>{
+    const sl=daily.slice(Math.max(0,i-w+1),i+1);
+    return {date:d.date,avg:Math.round(sl.reduce((s,x)=>s+x.oz,0)/sl.length*10)/10};
+  });
+}
+function getTodayOz() {
+  const td=todayStr();
+  return shared.feedLogs.filter(f=>f.date===td&&f.type!=='breast').reduce((s,f)=>s+(f.amt||0),0);
+}
+function targetStatus(oz) {
+  const lo=mlToOz(shared.targetLowMlKg*shared.targetWeightKg);
+  const hi=mlToOz(shared.targetHighMlKg*shared.targetWeightKg);
+  if(oz>=lo&&oz<=hi)return'on-target';
+  return oz<lo?'below-target':'above-target';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SVG CHARTS
+// ─────────────────────────────────────────────────────────────────────────────
+function svgLine(pts,stroke,sw=2,dash=''){
+  return `<polyline points="${pts}" fill="none" stroke="${stroke}" stroke-width="${sw}" stroke-linejoin="round" stroke-linecap="round" ${dash?`stroke-dasharray="${dash}"`:''}/>`;
+}
+
+function buildFeedChart(data,yKey,color,tLo,tHi,h=155){
+  if(!data.length)return`<div style="height:${h}px;display:flex;align-items:center;justify-content:center;color:var(--ink-faint);font-size:13px">No data yet</div>`;
+  const W=560,H=h,P={l:40,r:10,t:14,b:28};
+  const iW=W-P.l-P.r,iH=H-P.t-P.b;
+  const vals=data.map(d=>d[yKey]);
+  const allY=[...vals,tLo||0,tHi||0].filter(Boolean);
+  const sp=(Math.max(...allY)-Math.min(...allY))||1;
+  const minV=Math.max(0,Math.min(...allY)-sp*0.1),maxV=Math.max(...allY)+sp*0.12;
+  const xS=i=>P.l+(data.length<2?iW/2:(i/(data.length-1))*iW);
+  const yS=v=>P.t+iH-((v-minV)/(maxV-minV))*iH;
+  const pts=data.map((d,i)=>`${xS(i).toFixed(1)},${yS(d[yKey]).toFixed(1)}`).join(' ');
+  let s=`<svg viewBox="0 0 ${W} ${H}" class="chart" width="${W}" height="${H}" style="min-width:${W}px">`;
+  for(let i=0;i<=4;i++){const v=minV+(i/4)*(maxV-minV),y=yS(v);
+    s+=`<line x1="${P.l}" x2="${W-P.r}" y1="${y.toFixed(1)}" y2="${y.toFixed(1)}" stroke="#E8D9C5" stroke-width="1"/>`;
+    s+=`<text x="${P.l-4}" y="${(y+4).toFixed(1)}" font-size="9" fill="#9B8B7A" text-anchor="end">${v.toFixed(1)}</text>`;}
+  if(tLo&&tHi){
+    s+=`<rect x="${P.l}" y="${yS(tHi).toFixed(1)}" width="${iW}" height="${Math.max(0,yS(tLo)-yS(tHi)).toFixed(1)}" fill="rgba(139,175,141,0.18)" rx="3"/>`;
+    s+=`<line x1="${P.l}" x2="${W-P.r}" y1="${yS(tHi).toFixed(1)}" y2="${yS(tHi).toFixed(1)}" stroke="#5A9B5E" stroke-width="1.5" stroke-dasharray="5 3"/>`;
+    s+=`<line x1="${P.l}" x2="${W-P.r}" y1="${yS(tLo).toFixed(1)}" y2="${yS(tLo).toFixed(1)}" stroke="#8BAF8D" stroke-width="1.5" stroke-dasharray="5 3"/>`;}
+  if(data.length>1){
+    s+=`<polygon points="${xS(0).toFixed(1)},${(P.t+iH).toFixed(1)} ${pts} ${xS(data.length-1).toFixed(1)},${(P.t+iH).toFixed(1)}" fill="${color}22"/>`;
+    s+=svgLine(pts,color,2.5);}
+  data.forEach((d,i)=>{
+    s+=`<circle cx="${xS(i).toFixed(1)}" cy="${yS(d[yKey]).toFixed(1)}" r="4.5" fill="${color}"/>`;
+    s+=`<circle cx="${xS(i).toFixed(1)}" cy="${yS(d[yKey]).toFixed(1)}" r="2.5" fill="white"/>`;
+    if(data.length<=8||i%Math.ceil(data.length/7)===0)
+      s+=`<text x="${xS(i).toFixed(1)}" y="${H-4}" font-size="8.5" fill="#9B8B7A" text-anchor="middle">${d.date}</text>`;
+  });
+  return`<div class="chart-wrap">${s}</svg></div>`;
+}
+
+function buildGrowthChart(wLogs,mode){
+  const W=580,H=210,P={l:44,r:36,t:14,b:32};
+  const iW=W-P.l-P.r,iH=H-P.t-P.b;
+  const minX=mode==='fenton'?22:0,maxX=mode==='fenton'?50:12;
+  const allKg=wLogs.map(w=>w.kg);
+  const src=mode==='fenton'?FENTON_BOYS:WHO_BOYS;
+  const curveMax=Math.max(...Object.values(src).map(p=>p.p97));
+  const maxY=Math.max(...allKg,curveMax)*1.05,minY=0;
+  const xS=v=>P.l+((v-minX)/(maxX-minX))*iW;
+  const yS=v=>P.t+iH-((v-minY)/(maxY-minY))*iH;
+  let s=`<svg viewBox="0 0 ${W} ${H}" class="chart" width="${W}" height="${H}" style="min-width:${W}px">`;
+  for(let i=0;i<=5;i++){const v=minY+(i/5)*(maxY-minY),y=yS(v);
+    s+=`<line x1="${P.l}" x2="${W-P.r}" y1="${y.toFixed(1)}" y2="${y.toFixed(1)}" stroke="#E8D9C5" stroke-width="1"/>`;
+    s+=`<text x="${P.l-4}" y="${(y+4).toFixed(1)}" font-size="8.5" fill="#9B8B7A" text-anchor="end">${v.toFixed(2)}</text>`;}
+  const xTicks=mode==='fenton'?[24,26,28,30,32,34,36,38,40,42,44,46,48,50]:[0,1,2,3,4,5,6,7,8,9,10,11,12];
+  xTicks.forEach(v=>{
+    if(v<minX||v>maxX)return;
+    s+=`<line x1="${xS(v).toFixed(1)}" x2="${xS(v).toFixed(1)}" y1="${P.t}" y2="${P.t+iH}" stroke="#E8D9C5" stroke-width="0.5"/>`;
+    s+=`<text x="${xS(v).toFixed(1)}" y="${H-4}" font-size="8.5" fill="#9B8B7A" text-anchor="middle">${mode==='fenton'?v+'w':v+'m'}</text>`;
+  });
+  const curves=mode==='fenton'
+    ?[{pct:'p97',stroke:'#E8C4A0',sw:1.2,dash:'5 3',label:'97th'},
+      {pct:'p90',stroke:'#D4AA7A',sw:1.2,dash:'5 3',label:'90th'},
+      {pct:'p50',stroke:'#8BAF8D',sw:2,dash:'',label:'50th'},
+      {pct:'p10',stroke:'#D4AA7A',sw:1.2,dash:'5 3',label:'10th'},
+      {pct:'p3',stroke:'#E8C4A0',sw:1.2,dash:'5 3',label:'3rd'}]
+    :[{pct:'p97',stroke:'#E8C4A0',sw:1.2,dash:'5 3',label:'97th'},
+      {pct:'p90',stroke:'#D4AA7A',sw:1.2,dash:'5 3',label:'90th'},
+      {pct:'p75',stroke:'#C5DABC',sw:1.2,dash:'5 3',label:'75th'},
+      {pct:'p50',stroke:'#8BAF8D',sw:2,dash:'',label:'50th'},
+      {pct:'p25',stroke:'#C5DABC',sw:1.2,dash:'5 3',label:'25th'},
+      {pct:'p10',stroke:'#D4AA7A',sw:1.2,dash:'5 3',label:'10th'},
+      {pct:'p3',stroke:'#E8C4A0',sw:1.2,dash:'5 3',label:'3rd'}];
+  const srcKeys=Object.keys(src).map(Number).sort((a,b)=>a-b).filter(k=>k>=minX&&k<=maxX);
+  curves.forEach(({pct,stroke,sw,dash,label})=>{
+    const vk=srcKeys.filter(k=>src[k][pct]!=null);
+    if(vk.length<2)return;
+    const pts=vk.map(k=>`${xS(k).toFixed(1)},${yS(src[k][pct]).toFixed(1)}`).join(' ');
+    s+=svgLine(pts,stroke,sw,dash);
+    const lk=vk[vk.length-1];
+    s+=`<text x="${(xS(lk)+3).toFixed(1)}" y="${(yS(src[lk][pct])+3.5).toFixed(1)}" font-size="7.5" fill="${stroke}" font-weight="${pct==='p50'?'600':'400'}">${label}</text>`;
+  });
+  if(wLogs.length>1){
+    const wp=wLogs.map(w=>{const x=mode==='fenton'?w.gaWeeks:w.corrMonths;return`${xS(x).toFixed(1)},${yS(w.kg).toFixed(1)}`;}).join(' ');
+    s+=svgLine(wp,'#C97B5A',2.8);
+  }
+  wLogs.forEach(w=>{
+    const x=mode==='fenton'?w.gaWeeks:w.corrMonths;
+    s+=`<circle cx="${xS(x).toFixed(1)}" cy="${yS(w.kg).toFixed(1)}" r="5" fill="#C97B5A"/>`;
+    s+=`<circle cx="${xS(x).toFixed(1)}" cy="${yS(w.kg).toFixed(1)}" r="3" fill="white"/>`;
+  });
+  s+=`<text x="${(P.l+iW/2).toFixed(1)}" y="${H-1}" font-size="8.5" fill="#9B8B7A" text-anchor="middle">${mode==='fenton'?'Gestational Age (weeks)':'Corrected Age (months)'}</text>`;
+  return`<div class="chart-wrap">${s}</svg></div>`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STATIC DATA
+// ─────────────────────────────────────────────────────────────────────────────
+const MILESTONES=[
+  {id:1,name:'Lifts head during tummy time',ageRange:'1–2 months',ageMonths:1.5,cat:'motor'},
+  {id:2,name:'Smiles at faces',ageRange:'1–2 months',ageMonths:2,cat:'social'},
+  {id:3,name:'Follows moving objects with eyes',ageRange:'2–3 months',ageMonths:2.5,cat:'cognitive'},
+  {id:4,name:'Coos and gurgling sounds',ageRange:'2–3 months',ageMonths:3,cat:'language'},
+  {id:5,name:'Holds head up steadily',ageRange:'3–4 months',ageMonths:3.5,cat:'motor'},
+  {id:6,name:'Laughs out loud',ageRange:'3–4 months',ageMonths:4,cat:'social'},
+  {id:7,name:'Reaches for objects',ageRange:'4–5 months',ageMonths:4.5,cat:'motor'},
+  {id:8,name:'Recognizes familiar faces',ageRange:'4–5 months',ageMonths:5,cat:'social'},
+  {id:9,name:'Rolls tummy to back',ageRange:'4–5 months',ageMonths:4.5,cat:'motor'},
+  {id:10,name:'Babbles with consonants (ba, da)',ageRange:'5–6 months',ageMonths:6,cat:'language'},
+  {id:11,name:'Sits with support',ageRange:'5–6 months',ageMonths:5.5,cat:'motor'},
+  {id:12,name:'Transfers objects hand to hand',ageRange:'6–7 months',ageMonths:6.5,cat:'cognitive'},
+  {id:13,name:'Sits without support',ageRange:'7–8 months',ageMonths:7.5,cat:'motor'},
+  {id:14,name:'Shows stranger anxiety',ageRange:'7–9 months',ageMonths:8,cat:'social'},
+  {id:15,name:'Crawls',ageRange:'8–10 months',ageMonths:9,cat:'motor'},
+  {id:16,name:"Says 'mama'/'dada' (undirected)",ageRange:'8–10 months',ageMonths:9,cat:'language'},
+  {id:17,name:'Pulls to stand',ageRange:'9–12 months',ageMonths:10,cat:'motor'},
+  {id:18,name:'Waves bye-bye',ageRange:'9–12 months',ageMonths:10,cat:'social'},
+  {id:19,name:'First steps',ageRange:'12–15 months',ageMonths:12,cat:'motor'},
+  {id:20,name:'Says first meaningful word',ageRange:'12–14 months',ageMonths:13,cat:'language'},
+];
+const ACTIVITIES=[
+  {icon:'🪞',name:'Mirror Time',desc:'Baby-safe mirror play builds self-recognition and visual tracking.',age:'0–6 months'},
+  {icon:'🎵',name:'Singing & Rhymes',desc:'Nursery rhymes develop language patterns and deepen your bond.',age:'0–12 months'},
+  {icon:'🧸',name:'Tummy Time Play',desc:'Place toys just out of reach to encourage reaching and rolling.',age:'1–6 months'},
+  {icon:'📖',name:'Board Book Reading',desc:'High-contrast for newborns; colorful books as vision develops.',age:'0–12 months'},
+  {icon:'🤲',name:'Gentle Massage',desc:'Stroke arms and legs after bath — great for sensory development.',age:'0–6 months'},
+  {icon:'🌿',name:'Nature Walk',desc:'Point out trees, birds, clouds. Stimulates curiosity and language.',age:'3–12 months'},
+  {icon:'🫧',name:'Bubble Chasing',desc:'Blow bubbles and watch Wes track and bat at them.',age:'3–9 months'},
+  {icon:'🥄',name:'Sensory Textures',desc:'Soft fabric, smooth spoons, crinkle paper — safe tactile play.',age:'4–12 months'},
+  {icon:'🎈',name:'Balloon Bat',desc:'Tie to his wrist — he discovers cause and effect!',age:'3–8 months'},
+  {icon:'👏',name:'Peek-a-Boo',desc:'Classic object permanence. Never gets old.',age:'4–12 months'},
+  {icon:'🏊',name:'Splash Time',desc:'Supervised water play in a shallow tub.',age:'4–12 months'},
+  {icon:'🎨',name:'Finger Painting',desc:'Baby-safe paint to explore color and creativity.',age:'8–12 months'},
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RENDER
+// ─────────────────────────────────────────────────────────────────────────────
+const TABS=[
+  {id:'feed',label:'🍼 Feed'},{id:'growth',label:'📈 Growth'},
+  {id:'diaper',label:'💧 Diapers'},{id:'sleep',label:'😴 Sleep'},
+  {id:'milestones',label:'⭐ Milestones'},
+];
+
+function render(){
+  if(!firebaseReady)return;
+  const ages=getAges();
+  const corrMonths=ages.corrWeeks/4.33;
+
+  document.getElementById('navTabs').innerHTML=TABS.map(t=>
+    `<button class="nav-tab${ui.tab===t.id?' active':''}" onclick="setTab('${t.id}')">${t.label}</button>`
+  ).join('');
+
+  const daily=getDailyOz();
+  const rolling=getRollingAvg(daily);
+  const todayOz=getTodayOz();
+  const recentAvg=rolling.length?rolling[rolling.length-1].avg:0;
+  const tLo=mlToOz(shared.targetLowMlKg*shared.targetWeightKg);
+  const tHi=mlToOz(shared.targetHighMlKg*shared.targetWeightKg);
+  const tMax=tHi*1.45;
+  const todayMlKg=ozToMl(todayOz)/shared.targetWeightKg;
+  const todayStat=targetStatus(todayOz);
+  const avgStat=targetStatus(recentAvg);
+  const stColor={'on-target':'var(--green)','below-target':'var(--red)','above-target':'var(--amber)'};
+  const stLabel={
+    'on-target':'✅ Within target range',
+    'below-target':`⬇️ ${(tLo-todayOz).toFixed(1)} oz below low target`,
+    'above-target':`⬆️ ${(todayOz-tHi).toFixed(1)} oz above high target`,
+  };
+  const td=todayStr();
+  const todayDiapers=shared.diaperLogs.filter(d=>d.date===td).length;
+  const todaySleep=shared.sleepLogs.filter(s=>s.date===td).reduce((a,s)=>a+s.hours,0);
+  const lastW=shared.weightLogs[shared.weightLogs.length-1];
+  const pct=getPct(lastW.kg,corrMonths);
+  const catColor={motor:'tag-motor',social:'tag-social',language:'tag-language',cognitive:'tag-cognitive'};
+  const filtMs=MILESTONES.filter(m=>{
+    if(ui.msFilter==='all')return true;
+    if(ui.msFilter==='achieved')return!!shared.achieved[m.id];
+    if(ui.msFilter==='upcoming')return!shared.achieved[m.id];
+    return m.cat===ui.msFilter;
+  });
+
+  // ── WES HEADER
+  let html=`
+  <div class="wes-header">
+    <div class="wes-avatar">👶</div>
+    <div style="flex:1;min-width:0">
+      <div class="wes-name">Wesley</div>
+      <div class="wes-meta">
+        Born Feb 28, 2026 · ${BIRTH_GA_WEEKS}w ${BIRTH_GA_DAYS}d GA<br>
+        <span class="wes-badge">🏥 NICU ${NICU_DAYS}d</span>
+        <span class="wes-badge">📅 Chrono: ${ages.chronoWeeks}w ${ages.chronoRemDays}d</span>
+        <span class="wes-badge">🩺 Corrected: ${ages.corrWeeks}w ${ages.corrRemDays}d</span>
+      </div>
+    </div>
+    <div class="wes-qs">
+      <div class="wes-q"><div class="v">${todayOz.toFixed(1)}oz</div><div class="k">Today</div></div>
+      <div class="wes-q"><div class="v">${recentAvg.toFixed(1)}oz</div><div class="k">7d Avg</div></div>
+      <div class="wes-q"><div class="v">${lastW.lbs}lb</div><div class="k">${pct}</div></div>
+    </div>
+  </div>
+
+  <!-- WHO IS LOGGING -->
+  <div class="logger-name-wrap">
+    👤 Logging as:
+    <select onchange="setLogger(this.value)" style="margin-left:4px">
+      <option${ui.loggerName==='Mom'?' selected':''}>Mom</option>
+      <option${ui.loggerName==='Dad'?' selected':''}>Dad</option>
+    </select>
+    <span style="margin-left:auto;font-size:10px;color:var(--ink-faint)">All logs show who added them</span>
+  </div>`;
+
+  // ── FEED
+  if(ui.tab==='feed'){
+    const barFill=todayStat==='on-target'?'var(--sage)':todayStat==='below-target'?'var(--terracotta)':'var(--butter-dark)';
+    html+=`
+    <h2 class="section-title">Feeding Log</h2>
+    <p class="section-sub">Fortified breast milk · shared between Mom & Dad · ml/kg/day targets</p>
+    <div class="stats-row">
+      <div class="stat-pill ${todayStat}">
+        <div class="num">${todayOz.toFixed(1)}<span style="font-size:12px">oz</span></div><div class="lbl">Today</div>
+      </div>
+      <div class="stat-pill ${avgStat}">
+        <div class="num">${recentAvg.toFixed(1)}<span style="font-size:12px">oz</span></div><div class="lbl">7-Day Avg</div>
+      </div>
+      <div class="stat-pill">
+        <div class="num" style="font-size:15px">${tLo.toFixed(1)}–${tHi.toFixed(1)}</div><div class="lbl">Target oz/day</div>
+      </div>
+      <div class="stat-pill">
+        <div class="num" style="font-size:18px">${todayMlKg.toFixed(0)}</div><div class="lbl">ml/kg/day</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🎯 Daily Intake vs Target
+        <span class="card-action" onclick="toggleUI('showConfig')">${ui.showConfig?'Hide ▲':'⚙️ Targets ▼'}</span>
+      </div>
+      ${ui.showConfig?`
+      <div class="config-box">
+        <div class="config-box-title">⚙️ Target Configuration — synced to both phones</div>
+        <div class="log-form">
+          <div class="field"><label>Weight (kg)</label>
+            <input type="number" inputmode="decimal" step="0.01" value="${shared.targetWeightKg}"
+              onchange="saveTarget('weightKg',parseFloat(this.value)||0)"/></div>
+          <div class="field"><label>Low (ml/kg/day)</label>
+            <input type="number" inputmode="decimal" step="1" value="${shared.targetLowMlKg}"
+              onchange="saveTarget('lowMlKg',parseFloat(this.value)||0)"/></div>
+          <div class="field"><label>High (ml/kg/day)</label>
+            <input type="number" inputmode="decimal" step="1" value="${shared.targetHighMlKg}"
+              onchange="saveTarget('highMlKg',parseFloat(this.value)||0)"/></div>
+        </div>
+        <div class="config-info">
+          At <strong>${shared.targetWeightKg} kg</strong> ·
+          Low: <strong>${(shared.targetLowMlKg*shared.targetWeightKg).toFixed(0)} ml / ${tLo.toFixed(1)} oz</strong> ·
+          High: <strong>${(shared.targetHighMlKg*shared.targetWeightKg).toFixed(0)} ml / ${tHi.toFixed(1)} oz</strong>
+        </div>
+      </div>`:''}
+      <div style="display:flex;justify-content:space-between;font-size:9.5px;color:var(--ink-faint);margin-bottom:4px">
+        <span>0 oz</span>
+        <span style="color:var(--green);font-weight:600">Target ${tLo.toFixed(1)}–${tHi.toFixed(1)} oz</span>
+        <span>${tMax.toFixed(1)} oz</span>
+      </div>
+      <div class="target-bar-track">
+        <div class="target-bar-range" style="left:${(tLo/tMax*100).toFixed(1)}%;width:${((tHi-tLo)/tMax*100).toFixed(1)}%"></div>
+        <div class="target-bar-fill" style="width:${Math.min(100,todayOz/tMax*100).toFixed(1)}%;background:${barFill}"></div>
+      </div>
+      <div style="margin-top:7px;font-size:11.5px;color:var(--ink-soft)">
+        Today: <strong style="color:${stColor[todayStat]}">${todayOz.toFixed(1)} oz (${todayMlKg.toFixed(0)} ml/kg/day)</strong> · ${stLabel[todayStat]}
+      </div>
+      <div style="margin-top:3px;font-size:11px;color:var(--ink-faint)">
+        7-day avg: <strong style="color:${stColor[avgStat]}">${recentAvg.toFixed(1)} oz/day</strong> ·
+        ${avgStat==='on-target'?'✅ On track':avgStat==='below-target'?`needs +${(tLo-recentAvg).toFixed(1)} oz/day`:`${(recentAvg-tHi).toFixed(1)} oz above target`}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📊 Daily Oz — 14 Days</div>
+      ${buildFeedChart(daily.slice(-14),'oz','#C97B5A',tLo,tHi,155)}
+      <div class="chart-legend">
+        <span><svg width="18" height="3"><line x1="0" y1="1.5" x2="18" y2="1.5" stroke="#C97B5A" stroke-width="2.5"/></svg> Daily oz</span>
+        <span><svg width="18" height="3"><line x1="0" y1="1.5" x2="18" y2="1.5" stroke="#5A9B5E" stroke-width="1.5" stroke-dasharray="5 3"/></svg> High</span>
+        <span><svg width="18" height="3"><line x1="0" y1="1.5" x2="18" y2="1.5" stroke="#8BAF8D" stroke-width="1.5" stroke-dasharray="5 3"/></svg> Low</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📈 7-Day Rolling Average</div>
+      ${buildFeedChart(rolling.slice(-14),'avg','#A8C5DA',tLo,tHi,135)}
+      <div style="margin-top:7px;font-size:11px;color:var(--ink-faint)">
+        Trend: <strong style="color:#4A7A96">${recentAvg.toFixed(1)} oz/day</strong> ·
+        ${recentAvg<tLo?`needs +${(tLo-recentAvg).toFixed(1)} oz/day`:recentAvg>tHi?`${(recentAvg-tHi).toFixed(1)} oz above target`:'within target ✅'}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">➕ Log a Feed</div>
+      <div class="log-form">
+        <div class="field"><label>Type</label>
+          <select onchange="setUI('feedType',this.value)">
+            <option value="bottle"${ui.feedType==='bottle'?' selected':''}>🍼 Bottle</option>
+            <option value="breast"${ui.feedType==='breast'?' selected':''}>🤱 Breastfeed</option>
+            <option value="solid"${ui.feedType==='solid'?' selected':''}>🥄 Solid Food</option>
+          </select>
+        </div>
+        ${ui.feedType==='breast'?`
+        <div class="field"><label>Duration (min)</label>
+          <input type="number" inputmode="decimal" placeholder="15" value="${ui.feedDuration}"
+            onchange="setUI('feedDuration',this.value)"/></div>`:`
+        <div class="field"><label>Amount</label>
+          <input type="number" inputmode="decimal" step="0.1" placeholder="3.0" value="${ui.feedAmt}"
+            onchange="setUI('feedAmt',this.value)"/></div>
+        <div class="field"><label>Unit</label>
+          <select onchange="setUI('feedUnit',this.value)">
+            <option value="oz"${ui.feedUnit==='oz'?' selected':''}>oz</option>
+            <option value="ml"${ui.feedUnit==='ml'?' selected':''}>ml</option>
+          </select>
+        </div>`}
+        <button class="btn btn-primary" onclick="addFeed()">Log</button>
+      </div>
+      ${ui.feedType!=='breast'&&ui.feedAmt?`
+      <div style="margin-top:7px;font-size:11px;color:var(--ink-faint)">
+        ${ui.feedUnit==='oz'?`${ui.feedAmt} oz = ${(parseFloat(ui.feedAmt)*29.57).toFixed(0)} ml`:`${ui.feedAmt} ml = ${(parseFloat(ui.feedAmt)/29.57).toFixed(2)} oz`}
+      </div>`:''}
+    </div>
+
+    <div class="card">
+      <div class="card-title">📋 Recent Feeds</div>
+      <div class="log-list">
+        ${shared.feedLogs.slice(0,15).map((f,i)=>`
+        <div class="log-item">
+          <span class="log-icon">${f.type==='breast'?'🤱':f.type==='bottle'?'🍼':'🥄'}</span>
+          <div class="log-detail">
+            <div class="log-title">${f.type==='breast'?`Breastfeed${f.duration?` · ${f.duration} min`:''}`:f.type==='bottle'?`Bottle · ${f.amt} oz (${(f.amt*29.57).toFixed(0)} ml)`:`Solid · ${f.amt} oz`}</div>
+            <div class="log-time">${f.date} at ${f.time} <span class="log-who">· ${f.by||''}</span></div>
+          </div>
+          <span class="log-badge badge-${f.type}">${f.type}</span>
+          <span class="log-del" onclick="deleteFeed('${f._key}')">×</span>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  }
+
+  // ── GROWTH
+  if(ui.tab==='growth'){
+    const gained=(lastW.lbs-shared.weightLogs[0].lbs).toFixed(1);
+    const dispPct=ui.growthMode==='fenton'?getFentonPct(lastW.kg,lastW.gaWeeks):pct;
+    html+=`
+    <h2 class="section-title">Growth & Weight</h2>
+    <p class="section-sub">Fenton preterm & WHO growth curves with percentile bands</p>
+    <div class="info-pill">🩺 Born ${BIRTH_GA_WEEKS}w ${BIRTH_GA_DAYS}d · NICU ${NICU_DAYS}d · Discharged ~${ages.discharge.toLocaleDateString([],{month:'long',day:'numeric'})} · Corrected age ${ages.corrWeeks}w ${ages.corrRemDays}d</div>
+    <div class="stats-row">
+      <div class="stat-pill"><div class="num">${lastW.lbs}<span style="font-size:12px">lbs</span></div><div class="lbl">Weight</div></div>
+      <div class="stat-pill"><div class="num">${lastW.kg}<span style="font-size:12px">kg</span></div><div class="lbl">Kilograms</div></div>
+      <div class="stat-pill"><div class="num" style="font-size:15px">${dispPct}</div><div class="lbl">${ui.growthMode==='fenton'?'Fenton %ile':'WHO %ile'}</div></div>
+      <div class="stat-pill"><div class="num">+${gained}<span style="font-size:12px">lb</span></div><div class="lbl">Since Birth</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">📈 Growth Chart</div>
+      <div class="toggle-row">
+        <button class="toggle-btn${ui.growthMode==='fenton'?' active':''}" onclick="setUI('growthMode','fenton')">Fenton Preterm 2013</button>
+        <button class="toggle-btn${ui.growthMode==='who'?' active':''}" onclick="setUI('growthMode','who')">WHO Corrected Age</button>
+      </div>
+      ${ui.growthMode==='fenton'
+        ?`<div class="notice">📊 <strong>Fenton 2013</strong> — x-axis: GA weeks. Standard NICU preterm chart.</div>`
+        :`<div class="notice">📊 <strong>WHO Boys</strong> — x-axis: corrected age in months.</div>`}
+      ${buildGrowthChart(shared.weightLogs,ui.growthMode)}
+      <div class="chart-legend" style="margin-top:10px">
+        <span><svg width="18" height="3"><line x1="0" y1="1.5" x2="18" y2="1.5" stroke="#C97B5A" stroke-width="2.8"/></svg> Wes</span>
+        <span><svg width="18" height="3"><line x1="0" y1="1.5" x2="18" y2="1.5" stroke="#8BAF8D" stroke-width="2"/></svg> 50th</span>
+        <span><svg width="18" height="3"><line x1="0" y1="1.5" x2="18" y2="1.5" stroke="#D4AA7A" stroke-width="1.5" stroke-dasharray="5 3"/></svg> 10th/90th</span>
+        <span><svg width="18" height="3"><line x1="0" y1="1.5" x2="18" y2="1.5" stroke="#E8C4A0" stroke-width="1.5" stroke-dasharray="5 3"/></svg> 3rd/97th</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">➕ Log Weight</div>
+      <div class="log-form">
+        <div class="field"><label>Weight</label>
+          <input type="number" inputmode="decimal" step="0.1" placeholder="7.2"
+            value="${ui.weightInput}" onchange="setUI('weightInput',this.value)"/></div>
+        <div class="field"><label>Unit</label>
+          <select onchange="setUI('weightUnit',this.value)">
+            <option value="lbs"${ui.weightUnit==='lbs'?' selected':''}>lbs</option>
+            <option value="kg"${ui.weightUnit==='kg'?' selected':''}>kg</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" onclick="addWeight()">Log</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">📋 Weight History</div>
+      <div class="log-list">
+        ${[...shared.weightLogs].reverse().map(w=>`
+        <div class="log-item">
+          <span class="log-icon">⚖️</span>
+          <div class="log-detail">
+            <div class="log-title">${w.lbs} lbs · ${w.kg} kg</div>
+            <div class="log-time">${w.date} · GA ${w.gaWeeks}w · ${getPct(w.kg,w.corrMonths)} WHO <span class="log-who">· ${w.by||''}</span></div>
+          </div>
+          <span class="log-badge" style="background:var(--sand);color:var(--ink-soft)">${getFentonPct(w.kg,w.gaWeeks)}</span>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  }
+
+  // ── DIAPERS
+  if(ui.tab==='diaper'){
+    html+=`
+    <h2 class="section-title">Diaper Log</h2>
+    <p class="section-sub">Shared between Mom & Dad in real time</p>
+    <div class="stats-row">
+      <div class="stat-pill"><div class="num">${todayDiapers}</div><div class="lbl">Today</div></div>
+      <div class="stat-pill"><div class="num">${shared.diaperLogs.filter(d=>d.type==='wet').length}</div><div class="lbl">💧 Wet</div></div>
+      <div class="stat-pill"><div class="num">${shared.diaperLogs.filter(d=>d.type==='dirty').length}</div><div class="lbl">💩 Dirty</div></div>
+      <div class="stat-pill"><div class="num">${shared.diaperLogs.filter(d=>d.type==='both').length}</div><div class="lbl">Both</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">➕ Log a Diaper</div>
+      <div class="log-form">
+        <div class="field"><label>Type</label>
+          <select onchange="setUI('diaperType',this.value)">
+            <option value="wet"${ui.diaperType==='wet'?' selected':''}>💧 Wet</option>
+            <option value="dirty"${ui.diaperType==='dirty'?' selected':''}>💩 Dirty</option>
+            <option value="both"${ui.diaperType==='both'?' selected':''}>Both</option>
+          </select>
+        </div>
+        <button class="btn btn-sky" onclick="addDiaper()">Log</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">📋 Recent Diapers</div>
+      <div class="log-list">
+        ${shared.diaperLogs.slice(0,15).map((d,i)=>`
+        <div class="log-item">
+          <span class="log-icon">${d.type==='wet'?'💧':d.type==='dirty'?'💩':'🔄'}</span>
+          <div class="log-detail">
+            <div class="log-title">${d.type==='wet'?'Wet':d.type==='dirty'?'Dirty':'Wet + Dirty'} Diaper</div>
+            <div class="log-time">${d.date} at ${d.time} <span class="log-who">· ${d.by||''}</span></div>
+          </div>
+          <span class="log-badge badge-${d.type}">${d.type}</span>
+          <span class="log-del" onclick="deleteDiaper('${d._key}')">×</span>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  }
+
+  // ── SLEEP
+  if(ui.tab==='sleep'){
+    const nightH=shared.sleepLogs.filter(s=>s.type==='night'&&s.date===td).reduce((a,s)=>a+s.hours,0);
+    const napH=shared.sleepLogs.filter(s=>s.type==='nap'&&s.date===td).reduce((a,s)=>a+s.hours,0);
+    const napCt=shared.sleepLogs.filter(s=>s.type==='nap'&&s.date===td).length;
+    html+=`
+    <h2 class="section-title">Sleep Tracker</h2>
+    <p class="section-sub">Shared between Mom & Dad in real time</p>
+    <div class="stats-row">
+      <div class="stat-pill"><div class="num">${todaySleep.toFixed(1)}h</div><div class="lbl">Total</div></div>
+      <div class="stat-pill"><div class="num">${nightH.toFixed(1)}h</div><div class="lbl">🌙 Night</div></div>
+      <div class="stat-pill"><div class="num">${napH.toFixed(1)}h</div><div class="lbl">☀️ Naps</div></div>
+      <div class="stat-pill"><div class="num">${napCt}</div><div class="lbl">Nap Count</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">➕ Log Sleep</div>
+      <div class="log-form">
+        <div class="field"><label>Type</label>
+          <select onchange="setUI('sleepType',this.value)">
+            <option value="night"${ui.sleepType==='night'?' selected':''}>🌙 Night</option>
+            <option value="nap"${ui.sleepType==='nap'?' selected':''}>☀️ Nap</option>
+          </select>
+        </div>
+        <div class="field"><label>Start</label>
+          <input type="time" value="${ui.sleepStart}" onchange="setUI('sleepStart',this.value)"/></div>
+        <div class="field"><label>End</label>
+          <input type="time" value="${ui.sleepEnd}" onchange="setUI('sleepEnd',this.value)"/></div>
+        <button class="btn btn-sage" onclick="addSleep()">Log</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">📋 Sleep Sessions</div>
+      <div class="log-list">
+        ${shared.sleepLogs.slice(0,12).map((s,i)=>`
+        <div class="log-item">
+          <span class="log-icon">${s.type==='night'?'🌙':'☀️'}</span>
+          <div class="log-detail">
+            <div class="log-title">${s.type==='night'?'Night Sleep':'Nap'} · ${s.hours}h · ${s.start} – ${s.end}</div>
+            <div class="log-time">${s.date} <span class="log-who">· ${s.by||''}</span></div>
+          </div>
+          <span class="log-badge" style="background:${s.type==='night'?'#D6EAF4':'#EFF7EF'};color:${s.type==='night'?'#3A6A86':'#2A5A2E'}">${s.hours}h</span>
+          <span class="log-del" onclick="deleteSleep('${s._key}')">×</span>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  }
+
+  // ── MILESTONES
+  if(ui.tab==='milestones'){
+    html+=`
+    <h2 class="section-title">Milestones & Activities</h2>
+    <p class="section-sub">Corrected age: ${ages.corrWeeks}w ${ages.corrRemDays}d (${corrMonths.toFixed(1)} months)</p>
+    <div class="notice">🩺 Milestones assessed at <strong>corrected age</strong> — adjusted for prematurity. Either parent can mark achievements.</div>
+    <div class="toggle-row">
+      ${['all','achieved','upcoming','motor','social','language','cognitive'].map(f=>
+        `<button class="toggle-btn${ui.msFilter===f?' active':''}" onclick="setUI('msFilter','${f}')">${f==='all'?'All':f[0].toUpperCase()+f.slice(1)}</button>`
+      ).join('')}
+    </div>
+    <div style="margin-bottom:9px;font-size:11.5px;color:var(--ink-faint)">
+      ✅ ${Object.keys(shared.achieved).length} of ${MILESTONES.length} achieved · Tap to toggle
+    </div>
+    <div class="milestone-grid" style="margin-bottom:26px">
+      ${filtMs.map(m=>{
+        const isA=!!shared.achieved[m.id];
+        const isO=!isA&&m.ageMonths<corrMonths;
+        return`<div class="milestone-item${isA?' achieved':isO?' overdue':''}" onclick="toggleMs(${m.id})">
+          <div class="milestone-check">${isA?'✓':''}</div>
+          <div class="milestone-info">
+            <div class="milestone-name">${m.name}</div>
+            <div class="milestone-age">${isA?`✅ Achieved ${shared.achieved[m.id]}`:isO?`⚠️ Expected by ${m.ageRange} corrected`:`🔜 Expected ${m.ageRange} corrected`}</div>
+          </div>
+          <span class="milestone-tag ${catColor[m.cat]}">${m.cat}</span>
+        </div>`;
+      }).join('')}
+    </div>
+    <h3 style="font-family:'Fraunces',serif;font-size:18px;margin-bottom:5px;color:var(--ink)">🎈 Activities for Wes</h3>
+    <p style="font-size:11.5px;color:var(--ink-faint);margin-bottom:12px">Age-appropriate play ideas based on corrected developmental stage</p>
+    <div class="activity-grid">
+      ${ACTIVITIES.map(a=>`
+      <div class="activity-card">
+        <div class="activity-icon">${a.icon}</div>
+        <div class="activity-name">${a.name}</div>
+        <div class="activity-desc">${a.desc}</div>
+        <div class="activity-age">${a.age}</div>
+      </div>`).join('')}
+    </div>`;
+  }
+
+  document.getElementById('pageContent').innerHTML=html;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ACTIONS
+// ─────────────────────────────────────────────────────────────────────────────
+function setTab(t){ui.tab=t;render();window.scrollTo(0,0);}
+function setUI(k,v){ui[k]=v;render();}
+function toggleUI(k){ui[k]=!ui[k];render();}
+function setLogger(name){
+  ui.loggerName=name;
+  localStorage.setItem('wesworld-logger',name);
+  render();
+}
+
+function saveTarget(key,val){
+  shared['target'+key[0].toUpperCase()+key.slice(1).replace(/Ml/,'Ml')] = val;
+  db.ref('wesworld/targets').update({[key]:val});
+}
+
+// Map target keys
+function saveTarget(key,val){
+  const map={weightKg:'targetWeightKg',lowMlKg:'targetLowMlKg',highMlKg:'targetHighMlKg'};
+  if(map[key]) shared[map[key]]=val;
+  db.ref('wesworld/targets').update({[key]:val});
+  render();
+}
+
+function addFeed(){
+  let amtOz=parseFloat(ui.feedAmt)||0;
+  if(ui.feedType!=='breast'&&ui.feedUnit==='ml') amtOz=mlToOz(amtOz);
+  if(ui.feedType!=='breast'&&amtOz<=0){showToast('Enter an amount');return;}
+  const log={type:ui.feedType,time:nowStr(),date:todayStr(),by:ui.loggerName,ts:Date.now()};
+  if(ui.feedType!=='breast') log.amt=Math.round(amtOz*10)/10;
+  else log.duration=parseInt(ui.feedDuration)||0;
+  db.ref('wesworld/feedLogs').push(log);
+  ui.feedAmt='';ui.feedDuration='';
+  showToast('Feed logged ✓');render();
+}
+
+function deleteFeed(key){
+  if(!key||key==='undefined')return;
+  db.ref('wesworld/feedLogs/'+key).remove();
+  showToast('Entry removed');
+}
+
+function addDiaper(){
+  db.ref('wesworld/diaperLogs').push({type:ui.diaperType,time:nowStr(),date:todayStr(),by:ui.loggerName,ts:Date.now()});
+  showToast('Diaper logged ✓');
+}
+
+function deleteDiaper(key){
+  if(!key||key==='undefined')return;
+  db.ref('wesworld/diaperLogs/'+key).remove();
+}
+
+function addSleep(){
+  if(!ui.sleepStart||!ui.sleepEnd){showToast('Set start and end time');return;}
+  const [sh,sm]=ui.sleepStart.split(':').map(Number);
+  const [eh,em]=ui.sleepEnd.split(':').map(Number);
+  let hrs=(eh*60+em-sh*60-sm)/60;if(hrs<0)hrs+=24;
+  db.ref('wesworld/sleepLogs').push({
+    type:ui.sleepType,start:ui.sleepStart,end:ui.sleepEnd,
+    hours:Math.round(hrs*10)/10,date:todayStr(),by:ui.loggerName,ts:Date.now()
+  });
+  ui.sleepStart='';ui.sleepEnd='';
+  showToast('Sleep logged ✓');render();
+}
+
+function deleteSleep(key){
+  if(!key||key==='undefined')return;
+  db.ref('wesworld/sleepLogs/'+key).remove();
+}
+
+function addWeight(){
+  if(!ui.weightInput){showToast('Enter a weight');return;}
+  const raw=parseFloat(ui.weightInput);
+  const kg=ui.weightUnit==='lbs'?raw*0.4536:raw;
+  const lbs=ui.weightUnit==='lbs'?raw:raw*2.205;
+  const ages=getAges();
+  const entry={
+    date:todayStr(),
+    kg:Math.round(kg*100)/100,
+    lbs:Math.round(lbs*10)/10,
+    gaWeeks:parseFloat((ages.curGAWeeks+ages.curGARemDays/7).toFixed(1)),
+    corrMonths:parseFloat((ages.corrWeeks/4.33).toFixed(2)),
+    by:ui.loggerName,ts:Date.now()
+  };
+  // Weight logs stored as array in Firebase (ordered)
+  db.ref('wesworld/weightLogs').push(entry);
+  ui.weightInput='';
+  showToast('Weight logged ✓');render();
+}
+
+function toggleMs(id){
+  if(shared.achieved[id]){
+    db.ref('wesworld/achieved/'+id).remove();
+    showToast('Milestone unmarked');
+  } else {
+    db.ref('wesworld/achieved/'+id).set(todayStr());
+    showToast('Milestone achieved! 🎉');
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SERVICE WORKER
+// ─────────────────────────────────────────────────────────────────────────────
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BOOT — handled by auth.onAuthStateChanged above; nothing to do here.
+// ─────────────────────────────────────────────────────────────────────────────
+</script>
+</body>
+</html>
