@@ -1,0 +1,8 @@
+{
+  "rules": {
+    "wesworld": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    }
+  }
+}
