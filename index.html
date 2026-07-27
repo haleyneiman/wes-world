@@ -15,308 +15,270 @@
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  /* surfaces */
-  --bg:#F4F6F8;--surface:#FFFFFF;--surface-sunk:#F4F6F8;
+  --bg:#F4F6F8;--surface:#FFFFFF;--sunk:#F4F6F8;
   --border:#DDE3EA;--border-soft:#E4E9EF;
-  /* ink */
-  --ink:#1A1A2E;--ink-soft:#4A5468;--ink-faint:#7C8798;
-  /* accent + semantic */
+  --ink:#1A1A2E;--ink-mid:#55556E;--muted:#7C8798;
   --accent:#2F6FED;--accent-dark:#1E4FC0;--accent-soft:#E3ECFA;
   --green:#12B886;--green-soft:#D6F5EF;
-  --red:#E5484D;--red-soft:#FFECEC;
-  --amber:#E5A000;--amber-soft:#FFF4D6;
-  --cyan:#06B6D4;--cyan-soft:#DCF7FD;
-  --slate:#64748B;--orange:#F97316;--violet:#8B5CF6;--violet-soft:#EDE9FE;
-  /* shape */
-  --radius:24px;--radius-sm:14px;--radius-lg:28px;--radius-xs:10px;
+  --cyan:#06B6D4;--slate:#64748B;--orange:#F97316;--gold:#F5B301;
+  --red:#FF3B3B;--amber:#FFB627;
   --shadow:0 1px 2px rgba(26,26,46,.04),0 10px 30px -14px rgba(26,26,46,.08);
   --shadow-lg:0 1px 2px rgba(26,26,46,.04),0 24px 60px -20px rgba(26,26,46,.18);
-  /* legacy aliases — still referenced from JS template strings */
-  --cream:#F4F6F8;--warm-white:#FFFFFF;--sand:#DDE3EA;
-  --terracotta:#2F6FED;--sage:#12B886;--sage-light:#D6F5EF;
-  --sky:#06B6D4;--sky-light:#E3ECFA;--blush:#F9A8A8;
-  --lavender:#C4B5D4;--butter:#FFF4D6;--butter-dark:#E5A000;
 }
-html,body{height:100%;background:var(--bg);font-family:'DM Sans',sans-serif;color:var(--ink);
-  -webkit-tap-highlight-color:transparent;overscroll-behavior:none;}
+html,body{height:100%;-webkit-tap-highlight-color:transparent;overscroll-behavior:none;}
+body{font-family:'DM Sans',sans-serif;color:var(--ink);background:var(--bg);}
+input::placeholder{color:#C7C7DE;}
 .app-wrapper{min-height:100vh;background:var(--bg);
   background-image:radial-gradient(ellipse at 15% 0%,#E3ECFA 0%,transparent 55%),
   radial-gradient(ellipse at 85% 100%,#D6F5EF 0%,transparent 50%);}
+@keyframes toastIn{from{opacity:0;transform:translate(-50%,10px)}to{opacity:1;transform:translate(-50%,0)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
 
-/* SYNC INDICATOR */
+/* SYNC / OFFLINE */
 .sync-bar{position:fixed;top:0;left:0;right:0;height:3px;background:var(--accent);
-  transform:scaleX(0);transform-origin:left;transition:transform 0.4s;z-index:999;}
+  transform:scaleX(0);transform-origin:left;transition:transform .4s;z-index:999;}
 .sync-bar.active{transform:scaleX(1);}
 .sync-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);
   display:inline-block;margin-right:5px;animation:pulse 1.4s infinite;}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
-
-/* LOADING SCREEN */
-.loading-screen{position:fixed;inset:0;background:var(--bg);display:flex;
-  flex-direction:column;align-items:center;justify-content:center;z-index:1000;
-  font-family:'Fraunces',serif;
-  background-image:radial-gradient(ellipse at 20% 10%,#E3ECFA 0%,transparent 50%),
-  radial-gradient(ellipse at 80% 90%,#D6F5EF 0%,transparent 50%);}
-.loading-screen.hidden{display:none;}
-.loading-logo{font-size:34px;color:var(--ink);font-weight:700;margin-bottom:8px;letter-spacing:-1px;}
-.loading-logo span{color:var(--accent);font-weight:400;font-style:italic;}
-.loading-sub{font-size:13px;color:var(--ink-faint);font-family:'DM Sans',sans-serif;margin-top:4px;}
-.loading-spinner{width:32px;height:32px;border:3px solid var(--border);
-  border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin-top:20px;}
-@keyframes spin{to{transform:rotate(360deg)}}
-
-/* NAV */
-.nav{position:sticky;top:0;z-index:100;background:rgba(244,246,248,0.85);
-  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
-  border-bottom:1px solid var(--border);
-  padding:env(safe-area-inset-top) 16px 0;display:flex;align-items:center;}
-.nav-inner{display:flex;align-items:center;width:100%;padding-bottom:0;}
-.nav-logo{font-family:'Fraunces',serif;font-size:19px;font-weight:700;color:var(--ink);
-  padding:12px 0;margin-right:12px;letter-spacing:-0.5px;white-space:nowrap;flex-shrink:0;}
-.nav-logo span{color:var(--accent);font-weight:400;font-style:italic;}
-.nav-sync{font-size:10px;color:var(--ink-faint);display:flex;align-items:center;
-  margin-right:10px;white-space:nowrap;flex-shrink:0;}
-.nav-tabs{display:flex;gap:4px;overflow-x:auto;-webkit-overflow-scrolling:touch;
-  scrollbar-width:none;padding:8px 0;flex:1;}
-.nav-tabs::-webkit-scrollbar{display:none;}
-.nav-tab{padding:7px 13px;border-radius:999px;font-size:12px;font-weight:600;cursor:pointer;
-  border:none;background:transparent;color:var(--ink-faint);transition:all 0.18s;
-  white-space:nowrap;-webkit-appearance:none;}
-.nav-tab.active{background:var(--accent);color:#fff;
-  box-shadow:0 6px 16px -6px rgba(47,111,237,.5);}
-.nav-tab:active:not(.active){background:var(--accent-soft);}
-
-/* PAGE */
-.page{max-width:960px;margin:0 auto;padding:28px 20px calc(64px + env(safe-area-inset-bottom));}
-.section-title{font-family:'Fraunces',serif;font-size:25px;font-weight:600;
-  color:var(--ink);margin-bottom:4px;letter-spacing:-0.5px;}
-.section-sub{font-size:13px;color:var(--ink-faint);margin-bottom:22px;}
-
-/* CARDS */
-.card{background:var(--surface);border:none;box-shadow:var(--shadow);
-  border-radius:var(--radius);padding:22px;margin-bottom:16px;}
-.card-title{font-family:'Fraunces',serif;font-size:16px;font-weight:600;color:var(--ink);
-  margin-bottom:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
-.card-action{margin-left:auto;font-size:12px;color:var(--accent);cursor:pointer;
-  font-weight:600;white-space:nowrap;}
-
-/* FORMS */
-.log-form{display:flex;flex-wrap:wrap;gap:9px;align-items:flex-end;}
-.field{display:flex;flex-direction:column;gap:4px;flex:1;min-width:95px;}
-.field label{font-size:10px;font-weight:500;color:var(--ink-faint);
-  text-transform:uppercase;letter-spacing:0.5px;}
-.field input,.field select{
-  padding:11px 12px;border-radius:var(--radius-sm);border:1.5px solid var(--border);
-  background:var(--surface-sunk);font-family:'DM Sans',sans-serif;font-size:16px;color:var(--ink);
-  outline:none;transition:border-color 0.2s;-webkit-appearance:none;appearance:none;width:100%;}
-.field input:focus,.field select:focus{border-color:var(--accent);}
-.btn{padding:12px 22px;border-radius:999px;border:none;cursor:pointer;
-  font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;
-  transition:background 0.18s,transform 0.1s;white-space:nowrap;-webkit-appearance:none;}
-.btn:active{transform:translateY(1px);}
-/* one consistent primary action across every tab, per the design */
-.btn-primary,.btn-sage,.btn-sky{background:var(--ink);color:#fff;}
-.btn-primary:active,.btn-sage:active,.btn-sky:active{background:#0E0E1C;}
-
-/* TOAST */
-.toast{position:fixed;bottom:calc(32px + env(safe-area-inset-bottom));left:50%;
-  transform:translateX(-50%) translateY(16px);background:var(--ink);color:var(--bg);
-  padding:12px 22px;border-radius:999px;font-size:13px;font-weight:500;
-  box-shadow:0 8px 24px -8px rgba(0,0,0,0.35);
-  opacity:0;transition:all 0.28s;z-index:998;white-space:nowrap;pointer-events:none;}
-.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
-
-/* LOG LIST */
-.log-list{display:flex;flex-direction:column;gap:8px;margin-top:4px;}
-.log-item{display:flex;align-items:center;gap:12px;padding:12px 14px;
-  border-radius:16px;background:var(--surface-sunk);border:none;
-  font-size:13.5px;color:var(--ink);}
-.log-icon{font-size:17px;flex-shrink:0;}
-.log-detail{flex:1;min-width:0;}
-.log-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.log-time{font-size:10.5px;color:var(--ink-faint);margin-top:2px;}
-.log-who{font-size:10px;color:var(--accent);font-weight:600;}
-.log-del{font-size:20px;color:var(--ink-faint);padding:0 2px;flex-shrink:0;
-  line-height:1;cursor:pointer;opacity:0.6;}
-.log-badge{padding:3px 9px;border-radius:999px;font-size:10px;font-weight:600;flex-shrink:0;}
-.badge-bottle{background:var(--accent-soft);color:#1E4FC0;}
-.badge-breast{background:var(--cyan-soft);color:#0A7A8F;}
-.badge-solid{background:var(--green-soft);color:#0B7A5A;}
-.badge-wet{background:var(--accent-soft);color:#2F6FED;}
-.badge-dirty{background:var(--amber-soft);color:#8A6A20;}
-.badge-both{background:var(--violet-soft);color:#6D3FD4;}
-
-/* STATS */
-.stats-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;}
-.stat-pill{flex:1;min-width:80px;padding:16px 12px;background:var(--surface);
-  border:none;box-shadow:var(--shadow);border-radius:20px;text-align:center;}
-.stat-pill .num{font-family:'Fraunces',serif;font-size:20px;font-weight:700;
-  color:var(--accent);line-height:1;}
-.stat-pill .lbl{font-size:9px;color:var(--ink-faint);margin-top:4px;
-  text-transform:uppercase;letter-spacing:0.5px;}
-.stat-pill.on-target{background:var(--green-soft);}
-.stat-pill.on-target .num{color:#0B7A5A;}
-.stat-pill.below-target{background:var(--red-soft);}
-.stat-pill.below-target .num{color:var(--red);}
-.stat-pill.above-target{background:var(--amber-soft);}
-.stat-pill.above-target .num{color:#8A6A20;}
-
-/* TARGET BAR */
-.target-bar-track{height:12px;border-radius:999px;background:var(--border);
-  position:relative;overflow:hidden;}
-.target-bar-range{position:absolute;top:0;height:100%;
-  background:rgba(18,184,134,0.28);border-radius:999px;}
-.target-bar-fill{position:absolute;top:0;height:100%;border-radius:999px;transition:width 0.35s;}
-
-/* WES HEADER */
-.wes-header{display:flex;align-items:center;gap:20px;padding:24px 28px;border-radius:var(--radius-lg);
-  background:linear-gradient(135deg,#2F6FED 0%,#5B8CFF 100%);color:#fff;margin-bottom:28px;
-  box-shadow:0 20px 40px -20px rgba(47,111,237,0.5);flex-wrap:wrap;}
-.wes-avatar{width:60px;height:60px;border-radius:50%;background:rgba(255,255,255,0.22);
-  display:flex;align-items:center;justify-content:center;flex-shrink:0;
-  font-family:'Fraunces',serif;font-size:24px;font-weight:700;}
-.wes-name{font-family:'Fraunces',serif;font-size:22px;font-weight:700;letter-spacing:-0.5px;}
-.wes-meta{font-size:12px;opacity:0.92;margin-top:5px;line-height:1.7;}
-.wes-badge{display:inline-block;background:rgba(255,255,255,0.22);border-radius:999px;
-  padding:2px 9px;font-size:10px;margin-right:4px;}
-.wes-qs{margin-left:auto;display:flex;gap:22px;flex-shrink:0;}
-.wes-q{text-align:center;}
-.wes-q .v{font-family:'Fraunces',serif;font-size:18px;font-weight:700;}
-.wes-q .k{font-size:8.5px;opacity:0.85;text-transform:uppercase;letter-spacing:0.5px;margin-top:2px;}
-
-/* CONFIG */
-.config-box{margin-bottom:16px;padding:16px;background:var(--surface-sunk);
-  border-radius:16px;border:none;}
-.config-box-title{font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:10px;}
-.config-info{margin-top:8px;padding:9px 12px;background:var(--accent-soft);
-  border-radius:var(--radius-xs);font-size:11px;color:#1E4FC0;line-height:1.5;}
-
-/* CHART */
-.chart-wrap{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;}
-svg.chart{display:block;}
-.chart-legend{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;
-  font-size:10.5px;color:var(--ink-faint);}
-.chart-legend span{display:flex;align-items:center;gap:4px;}
-
-/* TOGGLE */
-.toggle-row{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px;}
-.toggle-btn{padding:6px 13px;border-radius:999px;font-size:11px;font-weight:600;cursor:pointer;
-  border:1px solid var(--border);background:var(--surface);color:var(--ink-faint);transition:all 0.18s;}
-.toggle-btn.active{background:var(--ink);color:#fff;border-color:var(--ink);}
-
-/* MILESTONES */
-.milestone-grid{display:flex;flex-direction:column;}
-.milestone-item{display:flex;align-items:flex-start;gap:14px;padding:13px 4px;
-  border-radius:0;border:none;border-bottom:1px solid var(--border-soft);
-  background:transparent;cursor:pointer;transition:background 0.15s;}
-.milestone-item:last-child{border-bottom:none;}
-.milestone-item.achieved .milestone-name{color:var(--ink-faint);}
-.milestone-check{width:24px;height:24px;border-radius:50%;border:2px solid var(--border);
-  display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;
-  color:transparent;transition:all 0.18s;}
-.milestone-item.achieved .milestone-check{background:var(--green);border-color:var(--green);color:#fff;}
-.milestone-item.overdue .milestone-check{border-color:var(--amber);}
-.milestone-info{flex:1;min-width:0;padding-top:1px;}
-.milestone-name{font-size:14px;font-weight:500;color:var(--ink);}
-.milestone-age{font-size:11px;color:var(--ink-faint);margin-top:3px;}
-.milestone-item.overdue .milestone-age{color:var(--amber);font-weight:500;}
-.milestone-tag{font-size:9.5px;padding:3px 9px;border-radius:999px;font-weight:600;flex-shrink:0;}
-.tag-motor{background:var(--accent-soft);color:#1E4FC0;}
-.tag-social{background:var(--amber-soft);color:#8A6A20;}
-.tag-language{background:var(--green-soft);color:#0B7A5A;}
-.tag-cognitive{background:var(--violet-soft);color:#6D3FD4;}
-
-/* ACTIVITIES */
-.activity-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;}
-.activity-card{padding:16px;border-radius:20px;border:none;
-  background:var(--surface);box-shadow:var(--shadow);}
-.activity-icon{font-size:20px;margin-bottom:8px;}
-.activity-name{font-size:13px;font-weight:600;color:var(--ink);margin-bottom:4px;}
-.activity-desc{font-size:11px;color:var(--ink-faint);line-height:1.5;}
-.activity-age{font-size:9.5px;color:var(--accent);margin-top:8px;font-weight:600;}
-
-/* INFO / NOTICE */
-.info-pill{padding:10px 14px;border-radius:var(--radius-sm);background:var(--accent-soft);
-  color:#1E4FC0;font-size:11px;margin-bottom:14px;line-height:1.5;}
-.notice{padding:10px 14px;border-radius:var(--radius-sm);background:var(--amber-soft);
-  color:#8A6A20;font-size:11px;margin-bottom:14px;line-height:1.5;}
-
-/* WHO IS LOGGING */
-.logger-name-wrap{padding:11px 15px;background:var(--surface);box-shadow:var(--shadow);
-  border-radius:var(--radius-sm);
-  margin-bottom:16px;display:flex;align-items:center;gap:10px;font-size:12px;}
-.logger-name-wrap select{background:transparent;border:none;font-size:12px;
-  font-weight:600;color:var(--accent);outline:none;-webkit-appearance:none;cursor:pointer;}
-
-/* OFFLINE */
 .offline-badge{display:none;position:fixed;top:calc(8px + env(safe-area-inset-top));
-  right:12px;background:var(--red);color:white;border-radius:999px;
+  right:12px;background:var(--red);color:#fff;border-radius:999px;
   padding:3px 10px;font-size:10px;font-weight:600;z-index:200;}
 .offline-badge.show{display:block;}
 
-/* LOGIN SCREEN */
+/* LOADING */
+.loading-screen{position:fixed;inset:0;background:var(--bg);display:flex;
+  flex-direction:column;align-items:center;justify-content:center;z-index:1000;font-family:'Fraunces',serif;
+  background-image:radial-gradient(ellipse at 20% 10%,#E3ECFA 0%,transparent 50%),
+  radial-gradient(ellipse at 80% 90%,#D6F5EF 0%,transparent 50%);}
+.loading-screen.hidden{display:none;}
+.loading-logo{font-size:34px;color:var(--ink);font-weight:700;letter-spacing:-1px;}
+.loading-logo span{color:var(--accent);font-weight:400;font-style:italic;}
+.loading-sub{font-size:13px;color:var(--muted);font-family:'DM Sans',sans-serif;margin-top:6px;}
+.loading-spinner{width:32px;height:32px;border:3px solid var(--border);
+  border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;margin-top:20px;}
+
+/* LOGIN */
 .login-screen{position:fixed;inset:0;background:var(--bg);display:none;
-  flex-direction:column;align-items:center;justify-content:center;z-index:1001;padding:24px;
+  align-items:center;justify-content:center;z-index:1001;padding:24px;
   background-image:radial-gradient(ellipse at 20% 10%,#E3ECFA 0%,transparent 50%),
   radial-gradient(ellipse at 80% 90%,#D6F5EF 0%,transparent 50%);}
 .login-screen.visible{display:flex;}
 .login-card{width:100%;max-width:380px;background:var(--surface);
-  border:none;box-shadow:var(--shadow-lg);border-radius:var(--radius-lg);padding:40px 32px;}
-.login-logo{font-family:'Fraunces',serif;font-size:34px;color:var(--ink);
-  font-weight:700;text-align:center;margin-bottom:6px;letter-spacing:-1px;}
-.login-logo span{color:var(--accent);font-weight:400;font-style:italic;}
-.login-sub{font-size:13px;color:var(--ink-faint);text-align:center;margin-bottom:32px;}
-.login-field{margin-bottom:14px;}
-.login-field label{display:block;font-size:10px;font-weight:600;color:var(--ink-faint);
-  text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px;}
-.login-field input{width:100%;padding:13px 15px;border-radius:var(--radius-sm);
-  border:1.5px solid var(--border);background:var(--surface-sunk);font-family:'DM Sans',sans-serif;
-  font-size:16px;color:var(--ink);outline:none;-webkit-appearance:none;}
-.login-field input:focus{border-color:var(--accent);}
-.login-btn{width:100%;padding:14px;border-radius:999px;border:none;cursor:pointer;
-  background:var(--accent);color:#fff;font-family:'DM Sans',sans-serif;
-  font-size:15px;font-weight:600;margin-top:8px;-webkit-appearance:none;
-  box-shadow:0 8px 20px -6px rgba(47,111,237,0.5);}
-.login-btn:active{background:var(--accent-dark);}
-.login-error{display:none;margin-top:14px;padding:10px 13px;border-radius:var(--radius-sm);
-  background:var(--red-soft);color:#B83228;font-size:12px;line-height:1.5;}
-.login-error.visible{display:block;}
-.login-google-btn{width:100%;padding:14px;border-radius:999px;cursor:pointer;
-  background:var(--surface);color:var(--ink);border:1.5px solid var(--border);
-  font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;-webkit-appearance:none;
-  display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:20px;}
-.login-google-btn:active{background:var(--surface-sunk);}
-.login-google-btn svg{flex-shrink:0;}
+  border-radius:28px;padding:40px 32px;box-shadow:var(--shadow-lg);}
+.login-logo{font-family:'Fraunces',serif;font-size:34px;font-weight:700;
+  text-align:center;letter-spacing:-1px;color:var(--ink);}
+.login-logo span{font-style:italic;font-weight:400;color:var(--accent);}
+.login-sub{font-size:13px;color:var(--muted);text-align:center;margin-top:6px;margin-bottom:32px;}
+.login-google-btn{width:100%;padding:14px;border-radius:999px;border:1.5px solid var(--border);
+  background:var(--surface);color:var(--ink);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;
+  display:flex;align-items:center;justify-content:center;gap:10px;cursor:pointer;margin-bottom:20px;-webkit-appearance:none;}
+.login-google-btn:active{background:var(--sunk);}
 .login-divider{display:flex;align-items:center;gap:12px;margin-bottom:20px;
-  font-size:10.5px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:0.6px;}
+  font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;}
 .login-divider::before,.login-divider::after{content:'';flex:1;height:1px;background:var(--border);}
-.nav-signout{font-size:12px;color:var(--ink-faint);cursor:pointer;padding:6px 8px;
-  flex-shrink:0;white-space:nowrap;}
+.login-field{margin-bottom:14px;}
+.login-field label{display:block;font-size:10px;font-weight:600;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;}
+.login-field input{width:100%;padding:13px 15px;border-radius:14px;border:1.5px solid var(--border);
+  background:var(--sunk);font-family:'DM Sans',sans-serif;font-size:16px;color:var(--ink);outline:none;-webkit-appearance:none;}
+.login-field input:focus{border-color:var(--accent);}
+.login-btn{width:100%;padding:14px;border-radius:999px;border:none;background:var(--accent);color:#fff;
+  font-family:'DM Sans',sans-serif;font-size:15px;font-weight:600;cursor:pointer;margin-top:8px;
+  box-shadow:0 8px 20px -6px rgba(47,111,237,.5);-webkit-appearance:none;}
+.login-btn:active{background:var(--accent-dark);}
+.login-error{display:none;margin-top:14px;padding:10px 13px;border-radius:14px;
+  background:#FFECEC;color:#B83228;font-size:12px;line-height:1.5;}
+.login-error.visible{display:block;}
 
-@media(max-width:480px){
-  .wes-qs{display:none;}
-  .activity-grid{grid-template-columns:1fr 1fr;}
-  /* even 2x2 grid beats flex-wrap leaving a lone full-width pill */
-  .stats-row{display:grid;grid-template-columns:1fr 1fr;}
-  .stat-pill{min-width:0;}
-  .wes-header{padding:20px;gap:16px;border-radius:var(--radius);}
-  .page{padding:20px 16px calc(56px + env(safe-area-inset-bottom));}
+/* NAV */
+.nav{position:sticky;top:0;z-index:100;background:rgba(244,246,248,.85);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid var(--border);
+  padding-top:env(safe-area-inset-top);}
+.nav-inner{max-width:960px;margin:0 auto;display:flex;align-items:center;gap:20px;padding:16px 20px;}
+.nav-logo{font-family:'Fraunces',serif;font-size:19px;font-weight:700;letter-spacing:-.5px;
+  flex-shrink:0;color:var(--ink);white-space:nowrap;}
+.nav-logo span{font-style:italic;font-weight:400;color:var(--accent);}
+.nav-sync{font-size:10px;color:var(--muted);display:flex;align-items:center;flex-shrink:0;white-space:nowrap;}
+.nav-tabs{display:flex;gap:4px;overflow-x:auto;flex:1;scrollbar-width:none;-webkit-overflow-scrolling:touch;}
+.nav-tabs::-webkit-scrollbar{display:none;}
+.nav-tab{padding:8px 16px;border-radius:999px;font-size:12.5px;font-weight:500;cursor:pointer;
+  border:none;background:transparent;color:var(--muted);white-space:nowrap;
+  font-family:'DM Sans',sans-serif;-webkit-appearance:none;transition:all .18s;}
+.nav-tab.active{background:var(--ink);color:#fff;font-weight:600;}
+.nav-signout{font-size:12px;color:var(--muted);cursor:pointer;flex-shrink:0;white-space:nowrap;}
+
+/* PAGE */
+.page{max-width:960px;margin:0 auto;padding:28px 20px calc(64px + env(safe-area-inset-bottom));}
+.section-head{display:flex;align-items:flex-end;justify-content:space-between;
+  margin-bottom:16px;flex-wrap:wrap;gap:16px;}
+.section-title{font-family:'Fraunces',serif;font-size:25px;font-weight:600;letter-spacing:-.5px;}
+.section-sub{font-size:13px;color:var(--muted);margin-bottom:18px;}
+
+/* HERO */
+.wes-header{display:flex;align-items:center;gap:20px;
+  background:linear-gradient(135deg,#2F6FED 0%,#5B8CFF 100%);border-radius:28px;
+  padding:24px 28px;margin-bottom:28px;color:#fff;
+  box-shadow:0 20px 40px -20px rgba(47,111,237,.5);flex-wrap:wrap;}
+.wes-avatar{width:60px;height:60px;border-radius:50%;background:rgba(255,255,255,.22);
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Fraunces',serif;font-size:24px;font-weight:700;flex-shrink:0;}
+.wes-info{flex:1;min-width:180px;}
+.wes-name{font-family:'Fraunces',serif;font-size:22px;font-weight:700;letter-spacing:-.5px;}
+.wes-meta{font-size:12px;opacity:.92;margin-top:5px;line-height:1.7;}
+.wes-badge{display:inline-block;white-space:nowrap;background:rgba(255,255,255,.22);
+  padding:2px 9px;border-radius:999px;}
+.wes-qs{display:flex;gap:22px;flex-shrink:0;}
+.wes-q{text-align:center;}
+.wes-q .v{font-family:'Fraunces',serif;font-size:18px;font-weight:700;}
+.wes-q .k{font-size:8.5px;opacity:.85;text-transform:uppercase;letter-spacing:.5px;margin-top:2px;}
+
+/* FORM CONTROLS */
+.fields{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;}
+.field label{display:block;font-size:9px;font-weight:600;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.6px;margin-bottom:5px;}
+.field input,.field select{padding:11px 12px;border-radius:14px;border:1.5px solid var(--border);
+  background:var(--sunk);font-family:'DM Sans',sans-serif;font-size:15px;color:var(--ink);
+  outline:none;-webkit-appearance:none;appearance:none;}
+.field input:focus,.field select:focus{border-color:var(--accent);}
+.btn-log{padding:12px 22px;border-radius:999px;border:none;background:var(--ink);color:#fff;
+  font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;-webkit-appearance:none;}
+.btn-log:active{background:#0E0E1C;}
+.chip{padding:7px 14px;border-radius:999px;font-size:12px;font-weight:500;cursor:pointer;
+  border:1.5px solid var(--border);background:var(--surface);color:var(--ink-mid);
+  white-space:nowrap;font-family:'DM Sans',sans-serif;-webkit-appearance:none;}
+.chip.active{font-weight:600;color:#fff;}
+.chip-sm{padding:4px 10px;border-radius:999px;font-size:10.5px;font-weight:500;cursor:pointer;
+  border:1px solid var(--border);background:var(--surface);color:var(--muted);
+  white-space:nowrap;font-family:'DM Sans',sans-serif;-webkit-appearance:none;}
+.chip-sm.active{font-weight:600;color:#fff;}
+.chip-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
+.chip-row-sm{display:flex;gap:6px;}
+.btn-ghost{padding:6px 12px;border-radius:999px;font-size:10.5px;font-weight:600;cursor:pointer;
+  border:1px solid var(--border);background:var(--surface);color:var(--muted);
+  font-family:'DM Sans',sans-serif;-webkit-appearance:none;white-space:nowrap;}
+
+/* CARDS + TILES */
+.card{background:var(--surface);border-radius:24px;padding:22px;margin-bottom:16px;box-shadow:var(--shadow);}
+.card-tight{padding:20px 22px;}
+.card-title{font-family:'Fraunces',serif;font-size:16px;font-weight:600;}
+.card-head{display:flex;justify-content:space-between;align-items:center;
+  margin-bottom:4px;flex-wrap:wrap;gap:8px;}
+.card-sub{font-size:11.5px;color:var(--muted);margin-bottom:16px;}
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;}
+.tile{background:var(--surface);border-radius:20px;padding:16px;text-align:center;box-shadow:var(--shadow);}
+.tile .v{font-family:'Fraunces',serif;font-size:19px;font-weight:700;color:var(--accent);}
+.tile .k{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-top:4px;}
+
+/* WEEK GRID */
+.week-grid{display:grid;grid-template-columns:30px repeat(7,1fr);gap:5px;}
+.week-hours{position:relative;height:220px;}
+.week-hour{position:absolute;left:0;font-size:8px;color:var(--muted);transform:translateY(-50%);}
+.week-day-label{font-size:9.5px;color:var(--muted);text-align:center;margin-bottom:4px;}
+.week-track{position:relative;height:220px;background:var(--sunk);border-radius:10px;border:1px solid var(--border-soft);}
+.feed-marker{position:absolute;left:8%;width:84%;height:6px;border-radius:3px;transform:translateY(-50%);}
+.sleep-overlay{position:absolute;left:2%;width:96%;border-radius:4px;opacity:.45;}
+.sleep-block{position:absolute;left:8%;width:84%;border-radius:4px;cursor:pointer;}
+.feed-overlay{position:absolute;left:2%;width:96%;height:3px;border-radius:2px;
+  transform:translateY(-50%);box-shadow:0 0 0 1px #fff;}
+.legend{display:flex;gap:16px;margin-top:12px;font-size:10.5px;color:var(--muted);flex-wrap:wrap;}
+.legend i{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:4px;font-style:normal;}
+.legend i.sq{border-radius:2px;}
+.legend b{display:inline-block;width:10px;height:6px;border-radius:3px;margin-right:4px;}
+.sel-block{background:var(--sunk);border-radius:14px;padding:10px 14px;
+  margin-bottom:14px;font-size:12.5px;color:var(--ink);}
+
+/* TREND BARS */
+.trend{display:flex;align-items:flex-end;gap:10px;height:120px;}
+.trend-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end;}
+.trend-vals{display:flex;gap:3px;align-items:flex-end;font-size:8.5px;color:var(--muted);}
+.trend-bars{display:flex;gap:3px;align-items:flex-end;height:100%;}
+.trend-bar{width:14px;border-radius:6px 6px 3px 3px;}
+.trend-day{font-size:9.5px;color:var(--muted);}
+
+/* LOG ROWS */
+.log-list{display:flex;flex-direction:column;gap:8px;}
+.log-row{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:16px;background:var(--sunk);}
+.log-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.log-main{flex:1;min-width:0;}
+.log-label{font-size:13.5px;color:var(--ink);}
+.log-meta{font-size:10.5px;color:var(--muted);margin-top:2px;}
+.log-del{font-size:18px;color:var(--muted);cursor:pointer;opacity:.5;flex-shrink:0;line-height:1;padding:0 2px;}
+.log-pct{font-size:11px;font-weight:600;color:var(--green);background:var(--green-soft);
+  padding:4px 10px;border-radius:999px;flex-shrink:0;}
+
+/* GROWTH PANEL */
+.growth-panel{background:#EEF3FC;border:1px solid #D7E3F7;border-radius:28px;padding:18px 16px 20px;}
+.growth-chart-wrap{position:relative;width:100%;aspect-ratio:580/230;}
+.growth-chart-wrap svg{position:absolute;inset:0;display:block;overflow:visible;}
+.gc-ylabel{position:absolute;left:0;transform:translateY(-50%);width:38px;text-align:right;
+  font-size:8.5px;color:var(--muted);white-space:nowrap;}
+.gc-xlabel{position:absolute;top:88%;transform:translateX(-50%);font-size:8.5px;color:var(--muted);}
+.gc-curve-label{position:absolute;font-size:7.5px;white-space:nowrap;}
+.gc-axis{position:absolute;left:50%;bottom:0;transform:translateX(-50%);font-size:8.5px;color:var(--muted);}
+.gc-legend{display:flex;flex-wrap:wrap;gap:10px 14px;margin-top:10px;}
+.gc-legend span{display:flex;align-items:center;gap:5px;font-size:10.5px;color:var(--muted);}
+.gc-legend i{display:inline-block;width:14px;height:2.5px;border-radius:2px;font-style:normal;}
+
+/* MILESTONES */
+.ms-progress-track{height:10px;border-radius:999px;background:var(--border);overflow:hidden;}
+.ms-progress-fill{height:100%;background:var(--green);border-radius:999px;transition:width .35s;}
+.ms-item{display:flex;align-items:flex-start;gap:14px;padding:12px 4px;cursor:pointer;
+  border-bottom:1px solid var(--border-soft);}
+.ms-item:last-child{border-bottom:none;}
+.ms-dot{width:22px;height:22px;border-radius:50%;flex-shrink:0;display:flex;
+  align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;}
+.ms-info{flex:1;min-width:0;padding-top:1px;}
+.ms-name{font-size:14px;color:var(--ink);font-weight:500;}
+.ms-age{font-size:11px;color:var(--muted);margin-top:3px;}
+.ms-tag{font-size:9.5px;font-weight:600;padding:3px 9px;border-radius:999px;flex-shrink:0;}
+
+/* ACTIVITIES */
+.act-row{display:flex;gap:12px;overflow-x:auto;padding-bottom:6px;-webkit-overflow-scrolling:touch;}
+.act-card{width:190px;flex:0 0 190px;background:var(--surface);border-radius:20px;padding:16px;
+  box-shadow:var(--shadow);}
+.act-icon{font-size:20px;margin-bottom:8px;}
+.act-name{font-size:13px;font-weight:600;color:var(--ink);}
+.act-desc{font-size:11px;color:var(--muted);line-height:1.5;margin-top:4px;}
+.act-age{font-size:9.5px;color:var(--accent);font-weight:600;margin-top:8px;}
+
+/* TOAST */
+.toast{position:fixed;bottom:calc(32px + env(safe-area-inset-bottom));left:50%;
+  transform:translate(-50%,10px);background:var(--ink);color:var(--bg);
+  padding:12px 22px;border-radius:999px;font-size:13px;font-weight:500;
+  box-shadow:0 8px 24px -8px rgba(0,0,0,.35);z-index:999;white-space:nowrap;
+  opacity:0;pointer-events:none;transition:all .25s ease-out;}
+.toast.show{opacity:1;transform:translate(-50%,0);}
+
+@media(max-width:640px){
+  .wes-qs{gap:16px;}
+  .tiles{gap:8px;}
+  .tile{padding:13px 8px;}
+  .tile .v{font-size:16px;}
+  .week-grid{grid-template-columns:24px repeat(7,1fr);gap:3px;}
+  .page{padding:20px 14px calc(56px + env(safe-area-inset-bottom));}
   .card{padding:18px;}
+  .growth-panel{padding:14px 10px 16px;}
+}
+@media(max-width:480px){
+  .wes-header{padding:20px;gap:16px;border-radius:24px;}
+  .wes-qs{width:100%;justify-content:space-between;}
+  .section-title{font-size:22px;}
 }
 </style>
 </head>
 <body>
 
 <div class="loading-screen" id="loadingScreen">
-  <div class="loading-logo">Wes<span>World</span> 🌍</div>
+  <div class="loading-logo">Wes <span>World</span></div>
   <div class="loading-sub" id="loadingMsg">Syncing with Firebase…</div>
   <div class="loading-spinner"></div>
 </div>
 
 <div class="login-screen" id="loginScreen">
   <div class="login-card">
-    <div class="login-logo">Wes<span>World</span> 🌍</div>
-    <div class="login-sub">Sign in to track Wesley together</div>
+    <div class="login-logo">Wes <span>World</span></div>
+    <div class="login-sub">Tracking Wesley's world, together</div>
     <button class="login-google-btn" onclick="doGoogleSignIn()">
       <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.87 2.7-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.96v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.17.28-1.7V4.97H.96A9 9 0 0 0 0 9c0 1.45.35 2.83.96 4.03l2.99-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .96 4.97l2.99 2.33C4.66 5.17 6.65 3.58 9 3.58z"/></svg>
       Continue with Google
@@ -342,10 +304,10 @@ svg.chart{display:block;}
 <div class="app-wrapper">
   <nav class="nav">
     <div class="nav-inner">
-      <div class="nav-logo">Wes<span>World</span> 🌍</div>
+      <div class="nav-logo">Wes <span>World</span></div>
       <div class="nav-sync" id="navSync"></div>
       <div class="nav-tabs" id="navTabs"></div>
-      <div class="nav-signout" onclick="doSignOut()" title="Sign out">⎋</div>
+      <div class="nav-signout" onclick="doSignOut()">Sign out</div>
     </div>
   </nav>
   <div class="page" id="pageContent"></div>
@@ -592,14 +554,13 @@ function getFentonPct(kg,gaWeeks){
 // ─────────────────────────────────────────────────────────────────────────────
 let ui = {
   tab: 'feed',
-  loggerName: localStorage.getItem('wesworld-logger') || 'Mom',
-  feedType: 'bottle', feedAmt: '', feedUnit: 'oz', feedDuration: '',
-  diaperType: 'wet',
-  sleepStart: '', sleepEnd: '', sleepType: 'night',
-  weightInput: '', weightUnit: 'lbs',
-  showConfig: false,
-  growthMode: 'fenton',
-  msFilter: 'all',
+  feedType: 'bottle', feedAmt: '', feedTime: new Date().toTimeString().slice(0,5),
+  sleepStart: '20:30', sleepEnd: '07:00',
+  growthMode: 'corrected', growthMetric: 'weight',
+  msAgeMode: 'corrected', msFilter: 'all',
+  newWeightLb: '', newWeightOz: '', newLength: '', newHeadCirc: '',
+  newMeasureDate: new Date().toISOString().slice(0,10),
+  selectedSleepBlock: null, showFeedOverlay: false, showSleepOverlay: false,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -607,7 +568,6 @@ let ui = {
 // ─────────────────────────────────────────────────────────────────────────────
 let shared = {
   feedLogs: [],
-  diaperLogs: [],
   sleepLogs: [],
   weightLogs: [
     {date:'Feb 28',kg:1.55,lbs:3.4,gaWeeks:30,corrMonths:0,by:'NICU'},
@@ -657,7 +617,6 @@ function handleSnapshot(snapshot) {
     const data = snapshot.val();
     if (data) {
       if (data.feedLogs) shared.feedLogs = objToArr(data.feedLogs);
-      if (data.diaperLogs) shared.diaperLogs = objToArr(data.diaperLogs);
       if (data.sleepLogs) shared.sleepLogs = objToArr(data.sleepLogs);
       if (data.weightLogs) shared.weightLogs = objToArr(data.weightLogs);
       if (data.targets) {
@@ -742,94 +701,213 @@ function targetStatus(oz) {
 // ─────────────────────────────────────────────────────────────────────────────
 // SVG CHARTS
 // ─────────────────────────────────────────────────────────────────────────────
-function svgLine(pts,stroke,sw=2,dash=''){
-  return `<polyline points="${pts}" fill="none" stroke="${stroke}" stroke-width="${sw}" stroke-linejoin="round" stroke-linecap="round" ${dash?`stroke-dasharray="${dash}"`:''}/>`;
+// ─────────────────────────────────────────────────────────────────────────────
+// GROWTH TABLES — length & head circumference derived from base medians
+// ─────────────────────────────────────────────────────────────────────────────
+function tableFromBase(base,ratios){
+  const out={};
+  Object.keys(base).forEach(k=>{const v=base[k];const row={};
+    Object.keys(ratios).forEach(p=>row[p]=+(v*ratios[p]).toFixed(2));out[k]=row;});
+  return out;
+}
+const LEN_RATIOS_WHO={p3:0.90,p10:0.94,p25:0.97,p50:1,p75:1.03,p90:1.06,p97:1.09};
+const LEN_RATIOS_FENTON={p3:0.90,p10:0.94,p50:1,p90:1.06,p97:1.10};
+const HC_RATIOS_WHO={p3:0.93,p10:0.96,p25:0.98,p50:1,p75:1.02,p90:1.04,p97:1.07};
+const HC_RATIOS_FENTON={p3:0.92,p10:0.95,p50:1,p90:1.05,p97:1.08};
+const WHO_LEN_BASE={0:49.9,1:54.7,2:58.4,3:61.4,4:63.9,5:65.9,6:67.6,7:69.2,8:70.6,9:72.0,10:73.3,11:74.5,12:75.7};
+const WHO_HC_BASE={0:34.5,1:37.3,2:39.1,3:40.5,4:41.6,5:42.6,6:43.3,7:44.0,8:44.5,9:45.0,10:45.4,11:45.8,12:46.1};
+const FENTON_LEN_BASE={30:39.9,31:40.9,32:41.8,33:42.7,34:43.6,35:44.5,36:45.4,37:46.2,38:47.0,39:47.7,40:48.4,41:49.0,42:49.5,43:49.9,44:50.2};
+const FENTON_HC_BASE={30:27.7,31:28.5,32:29.3,33:30.0,34:30.7,35:31.4,36:32.1,37:32.6,38:33.1,39:33.6,40:34.0,41:34.3,42:34.6,43:34.8,44:35.0};
+const WHO_BOYS_LEN=tableFromBase(WHO_LEN_BASE,LEN_RATIOS_WHO);
+const FENTON_BOYS_LEN=tableFromBase(FENTON_LEN_BASE,LEN_RATIOS_FENTON);
+const WHO_BOYS_HC=tableFromBase(WHO_HC_BASE,HC_RATIOS_WHO);
+const FENTON_BOYS_HC=tableFromBase(FENTON_HC_BASE,HC_RATIOS_FENTON);
+
+function getPctLabel(val,src,keys,x){
+  if(val==null||isNaN(val))return 'N/A';
+  let k=keys[0];for(const kk of keys) if(kk<=x) k=kk;
+  const p=src[k];if(!p)return 'N/A';
+  const bands=['p3','p10','p25','p50','p75','p90','p97'].filter(b=>p[b]!=null);
+  for(let i=0;i<bands.length;i++){
+    if(val<=p[bands[i]]) return i===0?'<3rd':bands[i-1].slice(1)+'–'+bands[i].slice(1)+'th';
+  }
+  return '>'+bands[bands.length-1].slice(1)+'th';
 }
 
-function buildFeedChart(data,yKey,color,tLo,tHi,h=155){
-  if(!data.length)return`<div style="height:${h}px;display:flex;align-items:center;justify-content:center;color:var(--ink-faint);font-size:13px">No data yet</div>`;
-  const W=560,H=h,P={l:40,r:10,t:14,b:28};
-  const iW=W-P.l-P.r,iH=H-P.t-P.b;
-  const vals=data.map(d=>d[yKey]);
-  const allY=[...vals,tLo||0,tHi||0].filter(Boolean);
-  const sp=(Math.max(...allY)-Math.min(...allY))||1;
-  const minV=Math.max(0,Math.min(...allY)-sp*0.1),maxV=Math.max(...allY)+sp*0.12;
-  const xS=i=>P.l+(data.length<2?iW/2:(i/(data.length-1))*iW);
-  const yS=v=>P.t+iH-((v-minV)/(maxV-minV))*iH;
-  const pts=data.map((d,i)=>`${xS(i).toFixed(1)},${yS(d[yKey]).toFixed(1)}`).join(' ');
-  let s=`<svg viewBox="0 0 ${W} ${H}" class="chart" width="${W}" height="${H}" style="min-width:${W}px">`;
-  for(let i=0;i<=4;i++){const v=minV+(i/4)*(maxV-minV),y=yS(v);
-    s+=`<line x1="${P.l}" x2="${W-P.r}" y1="${y.toFixed(1)}" y2="${y.toFixed(1)}" stroke="#E4E9EF" stroke-width="1"/>`;
-    s+=`<text x="${P.l-4}" y="${(y+4).toFixed(1)}" font-size="9" fill="#7C8798" text-anchor="end">${v.toFixed(1)}</text>`;}
-  if(tLo&&tHi){
-    s+=`<rect x="${P.l}" y="${yS(tHi).toFixed(1)}" width="${iW}" height="${Math.max(0,yS(tLo)-yS(tHi)).toFixed(1)}" fill="rgba(139,175,141,0.18)" rx="3"/>`;
-    s+=`<line x1="${P.l}" x2="${W-P.r}" y1="${yS(tHi).toFixed(1)}" y2="${yS(tHi).toFixed(1)}" stroke="#0B7A5A" stroke-width="1.5" stroke-dasharray="5 3"/>`;
-    s+=`<line x1="${P.l}" x2="${W-P.r}" y1="${yS(tLo).toFixed(1)}" y2="${yS(tLo).toFixed(1)}" stroke="#12B886" stroke-width="1.5" stroke-dasharray="5 3"/>`;}
-  if(data.length>1){
-    s+=`<polygon points="${xS(0).toFixed(1)},${(P.t+iH).toFixed(1)} ${pts} ${xS(data.length-1).toFixed(1)},${(P.t+iH).toFixed(1)}" fill="${color}22"/>`;
-    s+=svgLine(pts,color,2.5);}
-  data.forEach((d,i)=>{
-    s+=`<circle cx="${xS(i).toFixed(1)}" cy="${yS(d[yKey]).toFixed(1)}" r="4.5" fill="${color}"/>`;
-    s+=`<circle cx="${xS(i).toFixed(1)}" cy="${yS(d[yKey]).toFixed(1)}" r="2.5" fill="white"/>`;
-    if(data.length<=8||i%Math.ceil(data.length/7)===0)
-      s+=`<text x="${xS(i).toFixed(1)}" y="${H-4}" font-size="8.5" fill="#7C8798" text-anchor="middle">${d.date}</text>`;
+// ─────────────────────────────────────────────────────────────────────────────
+// FORMATTERS
+// ─────────────────────────────────────────────────────────────────────────────
+function fmtLbOz(kg){
+  const totalLb=kg/0.45359237;
+  let lb=Math.floor(totalLb),oz=Math.round((totalLb-lb)*16);
+  if(oz===16){oz=0;lb+=1;}
+  return `${lb} lb ${oz} oz`;
+}
+function fmtInches(cm){return (cm/2.54).toFixed(1)+' in';}
+function hourLabel(h){
+  const hh=Math.floor(h)%24,mm=Math.round((h-Math.floor(h))*60);
+  const ampm=hh<12?'AM':'PM';let h12=hh%12;if(h12===0)h12=12;
+  return `${h12}:${mm.toString().padStart(2,'0')} ${ampm}`;
+}
+function pctClamp(v,max){if(!max||!isFinite(max))return 4;return Math.max(4,Math.min(100,Math.round(v/max*100)));}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WEEK DERIVATION — the prototype's grids, fed from real Firebase logs
+// ─────────────────────────────────────────────────────────────────────────────
+const DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+function last7Days(){
+  const out=[],now=new Date();
+  for(let i=6;i>=0;i--){
+    const d=new Date(now);d.setDate(now.getDate()-i);
+    out.push({key:MONTHS[d.getMonth()]+' '+d.getDate(),dow:DOW[d.getDay()]});
+  }
+  return out;
+}
+// Hour-of-day for a log. The `time` label is the authoritative entered time —
+// seeded rows share one `ts` per day, so trusting `ts` first collapses them.
+function logHour(l){
+  const m=/(\d{1,2}):(\d{2})\s*(AM|PM)?/i.exec((l&&l.time)||'');
+  if(m){
+    let h=+m[1];const mi=+m[2],ap=m[3];
+    if(ap){if(/PM/i.test(ap)&&h!==12)h+=12;if(/AM/i.test(ap)&&h===12)h=0;}
+    return Math.min(23.99,h+mi/60);
+  }
+  if(l&&l.ts){const d=new Date(l.ts);return d.getHours()+d.getMinutes()/60;}
+  return 12;
+}
+function hhmmToHours(t){
+  const m=/(\d{1,2}):(\d{2})/.exec(t||'');
+  return m?(+m[1]+ +m[2]/60):null;
+}
+// A sleep log becomes one or two [start,end] spans so overnight wraps render correctly.
+function sleepSpans(s){
+  const a=hhmmToHours(s.start),b=hhmmToHours(s.end);
+  if(a==null||b==null)return [];
+  if(b>a)return [[a,b]];
+  return [[a,24],[0,b]];
+}
+function feedColor(type){return type==='breast'?'#06B6D4':'#2F6FED';}
+function sleepColor(type){return type==='nap'?'#64748B':'#06B6D4';}
+
+function buildFeedWeek(){
+  const days=last7Days();
+  return days.map(d=>{
+    const feeds=shared.feedLogs.filter(f=>f.date===d.key);
+    const sleeps=shared.sleepLogs.filter(s=>s.date===d.key);
+    const sleepBlocks=[];
+    sleeps.forEach(s=>sleepSpans(s).forEach(([a,b])=>sleepBlocks.push({
+      topPct:a/24*100,heightPct:(b-a)/24*100,color:sleepColor(s.type)})));
+    return {
+      day:d.dow,dateKey:d.key,
+      markers:feeds.map(f=>({topPct:logHour(f)/24*100,color:feedColor(f.type)})),
+      sleepBlocks
+    };
   });
-  return`<div class="chart-wrap">${s}</svg></div>`;
+}
+function buildSleepWeek(){
+  const days=last7Days();
+  return days.map(d=>{
+    const sleeps=shared.sleepLogs.filter(s=>s.date===d.key);
+    const feeds=shared.feedLogs.filter(f=>f.date===d.key);
+    const blocks=[];
+    sleeps.forEach(s=>sleepSpans(s).forEach(([a,b])=>blocks.push({
+      topPct:a/24*100,heightPct:(b-a)/24*100,color:sleepColor(s.type),
+      typeLabel:s.type==='nap'?'Nap':'Night sleep',
+      startLabel:hourLabel(hhmmToHours(s.start)),
+      endLabel:hourLabel(hhmmToHours(s.end))
+    })));
+    return {
+      day:d.dow,dateKey:d.key,blocks,
+      feedMarkers:feeds.map(f=>({topPct:logHour(f)/24*100,color:f.type==='breast'?'#F5B301':'#F97316'}))
+    };
+  });
+}
+const HOUR_LABELS=[{label:'12a',topPct:0},{label:'4a',topPct:16.7},{label:'8a',topPct:33.3},
+  {label:'12p',topPct:50},{label:'4p',topPct:66.7},{label:'8p',topPct:83.3},{label:'12a',topPct:100}];
+
+// A real, data-derived version of the prototype's feed-pattern sentence.
+function feedPatternSentence(week){
+  const all=[];week.forEach(d=>d.markers.forEach(m=>all.push(m.topPct/100*24)));
+  const perDay=(all.length/7).toFixed(1);
+  if(!all.length)return 'No feeds logged in the last 7 days yet.';
+  const buckets=new Array(12).fill(0);
+  all.forEach(h=>buckets[Math.min(11,Math.floor(h/2))]++);
+  const ranked=buckets.map((c,i)=>({c,i})).sort((a,b)=>b.c-a.c).slice(0,2)
+    .sort((a,b)=>a.i-b.i).filter(b=>b.c>0);
+  const win=b=>`${hourLabel(b.i*2).replace(':00','')}–${hourLabel(b.i*2+2).replace(':00','')}`;
+  const wins=ranked.map(win).join(' and ');
+  return `Busiest around ${wins} — averaging ${perDay} feeds a day this week.`;
 }
 
-function buildGrowthChart(wLogs,mode){
-  const W=580,H=228,P={l:44,r:36,t:14,b:50};
+// ─────────────────────────────────────────────────────────────────────────────
+// GROWTH CHART — prototype geometry, real measurements
+// ─────────────────────────────────────────────────────────────────────────────
+function buildGrowthChart(logs,mode,valueKey,tables,fmt,axisFmt){
+  axisFmt=axisFmt||fmt;
+  const P={l:44,r:36,t:14,b:34},W=580,H=230;
   const iW=W-P.l-P.r,iH=H-P.t-P.b;
-  const minX=mode==='fenton'?22:0,maxX=mode==='fenton'?50:12;
-  const allKg=wLogs.map(w=>w.kg);
-  const src=mode==='fenton'?FENTON_BOYS:WHO_BOYS;
-  const curveMax=Math.max(...Object.values(src).map(p=>p.p97));
-  const maxY=Math.max(...allKg,curveMax)*1.05,minY=0;
+  const minX=mode==='fenton'?30:0,maxX=mode==='fenton'?44:12;
+  const src=mode==='fenton'?tables.fenton:tables.who;
+  const srcKeys=Object.keys(src).map(Number).sort((a,b)=>a-b).filter(k=>k>=minX&&k<=maxX);
+  const pts=logs.filter(w=>w[valueKey]!=null&&!isNaN(w[valueKey]));
+  const curveMax=Math.max(...srcKeys.map(k=>src[k].p97));
+  const maxY=Math.max(...pts.map(w=>w[valueKey]),curveMax)*1.08,minY=0;
   const xS=v=>P.l+((v-minX)/(maxX-minX))*iW;
   const yS=v=>P.t+iH-((v-minY)/(maxY-minY))*iH;
-  let s=`<svg viewBox="0 0 ${W} ${H}" class="chart" width="${W}" height="${H}" style="min-width:${W}px">`;
+  const gridLines=[];
   for(let i=0;i<=5;i++){const v=minY+(i/5)*(maxY-minY),y=yS(v);
-    s+=`<line x1="${P.l}" x2="${W-P.r}" y1="${y.toFixed(1)}" y2="${y.toFixed(1)}" stroke="#E4E9EF" stroke-width="1"/>`;
-    s+=`<text x="${P.l-4}" y="${(y+4).toFixed(1)}" font-size="8.5" fill="#7C8798" text-anchor="end">${v.toFixed(2)}</text>`;}
-  const xTicks=mode==='fenton'?[24,26,28,30,32,34,36,38,40,42,44,46,48,50]:[0,1,2,3,4,5,6,7,8,9,10,11,12];
-  xTicks.forEach(v=>{
-    if(v<minX||v>maxX)return;
-    s+=`<line x1="${xS(v).toFixed(1)}" x2="${xS(v).toFixed(1)}" y1="${P.t}" y2="${P.t+iH}" stroke="#E4E9EF" stroke-width="0.5"/>`;
-    s+=`<text x="${xS(v).toFixed(1)}" y="${(P.t+iH+14).toFixed(1)}" font-size="8.5" fill="#7C8798" text-anchor="middle">${mode==='fenton'?v+'w':v+'m'}</text>`;
-  });
-  const curves=mode==='fenton'
-    ?[{pct:'p97',stroke:'#CBD5E1',sw:1.2,dash:'5 3',label:'97th'},
-      {pct:'p90',stroke:'#94A3B8',sw:1.2,dash:'5 3',label:'90th'},
-      {pct:'p50',stroke:'#12B886',sw:2,dash:'',label:'50th'},
-      {pct:'p10',stroke:'#94A3B8',sw:1.2,dash:'5 3',label:'10th'},
-      {pct:'p3',stroke:'#CBD5E1',sw:1.2,dash:'5 3',label:'3rd'}]
-    :[{pct:'p97',stroke:'#CBD5E1',sw:1.2,dash:'5 3',label:'97th'},
-      {pct:'p90',stroke:'#94A3B8',sw:1.2,dash:'5 3',label:'90th'},
-      {pct:'p75',stroke:'#7FC8DE',sw:1.2,dash:'5 3',label:'75th'},
-      {pct:'p50',stroke:'#12B886',sw:2,dash:'',label:'50th'},
-      {pct:'p25',stroke:'#7FC8DE',sw:1.2,dash:'5 3',label:'25th'},
-      {pct:'p10',stroke:'#94A3B8',sw:1.2,dash:'5 3',label:'10th'},
-      {pct:'p3',stroke:'#CBD5E1',sw:1.2,dash:'5 3',label:'3rd'}];
-  const srcKeys=Object.keys(src).map(Number).sort((a,b)=>a-b).filter(k=>k>=minX&&k<=maxX);
-  curves.forEach(({pct,stroke,sw,dash,label})=>{
+    gridLines.push({y:y.toFixed(1),topPct:(y/H*100).toFixed(1),label:axisFmt(v)});}
+  const xTickVals=mode==='fenton'?[30,32,34,36,38,40,42,44]:[0,2,4,6,8,10,12];
+  const xTicks=xTickVals.filter(v=>v>=minX&&v<=maxX).map(v=>({
+    x:xS(v).toFixed(1),leftPct:(xS(v)/W*100).toFixed(1),label:mode==='fenton'?v+'w':v+'m'}));
+  const curveDefs=mode==='fenton'
+    ?[{pct:'p97',stroke:'#B9CCEF',sw:'1.2',dash:'5 3',label:'97th',fw:'400'},
+      {pct:'p90',stroke:'#8FADE8',sw:'1.2',dash:'5 3',label:'90th',fw:'400'},
+      {pct:'p50',stroke:'#12B886',sw:'2',dash:'',label:'50th',fw:'600'},
+      {pct:'p10',stroke:'#8FADE8',sw:'1.2',dash:'5 3',label:'10th',fw:'400'},
+      {pct:'p3',stroke:'#B9CCEF',sw:'1.2',dash:'5 3',label:'3rd',fw:'400'}]
+    :[{pct:'p97',stroke:'#B9CCEF',sw:'1.2',dash:'5 3',label:'97th',fw:'400'},
+      {pct:'p90',stroke:'#8FADE8',sw:'1.2',dash:'5 3',label:'90th',fw:'400'},
+      {pct:'p75',stroke:'#A9DCCB',sw:'1.2',dash:'5 3',label:'75th',fw:'400'},
+      {pct:'p50',stroke:'#12B886',sw:'2',dash:'',label:'50th',fw:'600'},
+      {pct:'p25',stroke:'#A9DCCB',sw:'1.2',dash:'5 3',label:'25th',fw:'400'},
+      {pct:'p10',stroke:'#8FADE8',sw:'1.2',dash:'5 3',label:'10th',fw:'400'},
+      {pct:'p3',stroke:'#B9CCEF',sw:'1.2',dash:'5 3',label:'3rd',fw:'400'}];
+  const curves=curveDefs.map(({pct,stroke,sw,dash,label,fw})=>{
     const vk=srcKeys.filter(k=>src[k][pct]!=null);
-    if(vk.length<2)return;
-    const pts=vk.map(k=>`${xS(k).toFixed(1)},${yS(src[k][pct]).toFixed(1)}`).join(' ');
-    s+=svgLine(pts,stroke,sw,dash);
+    const points=vk.map(k=>`${xS(k).toFixed(1)},${yS(src[k][pct]).toFixed(1)}`).join(' ');
     const lk=vk[vk.length-1];
-    s+=`<text x="${(xS(lk)+3).toFixed(1)}" y="${(yS(src[lk][pct])+3.5).toFixed(1)}" font-size="7.5" fill="${stroke}" font-weight="${pct==='p50'?'600':'400'}">${label}</text>`;
+    return {points,stroke,sw,dash,label,fw,
+      leftPct:((xS(lk)+3)/W*100).toFixed(1),topPct:((yS(src[lk][pct])+3.5)/H*100).toFixed(1)};
   });
-  if(wLogs.length>1){
-    const wp=wLogs.map(w=>{const x=mode==='fenton'?w.gaWeeks:w.corrMonths;return`${xS(x).toFixed(1)},${yS(w.kg).toFixed(1)}`;}).join(' ');
-    s+=svgLine(wp,'#2F6FED',2.8);
-  }
-  wLogs.forEach(w=>{
-    const x=mode==='fenton'?w.gaWeeks:w.corrMonths;
-    s+=`<circle cx="${xS(x).toFixed(1)}" cy="${yS(w.kg).toFixed(1)}" r="5" fill="#2F6FED"/>`;
-    s+=`<circle cx="${xS(x).toFixed(1)}" cy="${yS(w.kg).toFixed(1)}" r="3" fill="white"/>`;
+  const valPoints=pts.map(w=>{const x=mode==='fenton'?w.gaWeeks:w.corrMonths;
+    return `${xS(x).toFixed(1)},${yS(w[valueKey]).toFixed(1)}`;}).join(' ');
+  const valDots=pts.map(w=>{const x=mode==='fenton'?w.gaWeeks:w.corrMonths;
+    return {cx:xS(x).toFixed(1),cy:yS(w[valueKey]).toFixed(1),
+      tooltip:`${w.date} · ${fmt(w[valueKey])} · ${getPctLabel(w[valueKey],src,srcKeys,x)} percentile`};});
+  return {W,H,gridLines,xTicks,curves,valPoints,valDots,
+    xAxisLabel:mode==='fenton'?'Gestational age (weeks)':'Corrected age (months)'};
+}
+
+function growthChartHtml(gc){
+  let svg=`<svg viewBox="0 0 ${gc.W} ${gc.H}" width="100%" height="100%" preserveAspectRatio="none">`;
+  gc.gridLines.forEach(g=>svg+=`<line x1="44" x2="544" y1="${g.y}" y2="${g.y}" stroke="#E4E9EF" stroke-width="1"/>`);
+  gc.xTicks.forEach(t=>svg+=`<line x1="${t.x}" x2="${t.x}" y1="14" y2="196" stroke="#E4E9EF" stroke-width="0.5"/>`);
+  gc.curves.forEach(c=>svg+=`<polyline points="${c.points}" fill="none" stroke="${c.stroke}" stroke-width="${c.sw}"${c.dash?` stroke-dasharray="${c.dash}"`:''}/>`);
+  if(gc.valPoints)svg+=`<polyline points="${gc.valPoints}" fill="none" stroke="#2F6FED" stroke-width="2.8"/>`;
+  gc.valDots.forEach(d=>{
+    svg+=`<circle cx="${d.cx}" cy="${d.cy}" r="7" fill="transparent" style="cursor:pointer"><title>${esc(d.tooltip)}</title></circle>`;
+    svg+=`<circle cx="${d.cx}" cy="${d.cy}" r="5" fill="#2F6FED" style="pointer-events:none"/>`;
+    svg+=`<circle cx="${d.cx}" cy="${d.cy}" r="3" fill="#FFFFFF" style="pointer-events:none"/>`;
   });
-  s+=`<text x="${(P.l+iW/2).toFixed(1)}" y="${H-8}" font-size="9" font-weight="500" fill="#7C8798" text-anchor="middle">${mode==='fenton'?'Gestational Age (weeks)':'Corrected Age (months)'}</text>`;
-  return`<div class="chart-wrap">${s}</svg></div>`;
+  svg+='</svg>';
+  let ov='';
+  gc.gridLines.forEach(g=>ov+=`<div class="gc-ylabel" style="top:${g.topPct}%">${esc(g.label)}</div>`);
+  gc.xTicks.forEach(t=>ov+=`<div class="gc-xlabel" style="left:${t.leftPct}%">${esc(t.label)}</div>`);
+  gc.curves.forEach(c=>ov+=`<div class="gc-curve-label" style="left:${c.leftPct}%;top:${c.topPct}%;color:${c.stroke};font-weight:${c.fw}">${esc(c.label)}</div>`);
+  ov+=`<div class="gc-axis">${esc(gc.xAxisLabel)}</div>`;
+  return `<div class="growth-chart-wrap">${svg}${ov}</div>`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -876,397 +954,442 @@ const ACTIVITIES=[
 // RENDER
 // ─────────────────────────────────────────────────────────────────────────────
 const TABS=[
-  {id:'feed',label:'🍼 Feed'},{id:'growth',label:'📈 Growth'},
-  {id:'diaper',label:'💧 Diapers'},{id:'sleep',label:'😴 Sleep'},
-  {id:'milestones',label:'⭐ Milestones'},
+  {id:'feed',label:'Feed'},{id:'growth',label:'Growth'},
+  {id:'sleep',label:'Sleep'},{id:'milestones',label:'Milestones'},
 ];
+const CAT_COLORS={motor:{bg:'#DCEEFF',fg:'#1D6FA8'},social:{bg:'#E7ECF3',fg:'#1E4FC0'},
+  language:{bg:'#D6F5EF',fg:'#00806F'},cognitive:{bg:'#CFFAFE',fg:'#0E7490'}};
+const MS_FILTERS=[{id:'all',label:'All'},{id:'achieved',label:'Achieved'},{id:'upcoming',label:'Upcoming'},
+  {id:'motor',label:'Motor'},{id:'social',label:'Social'},{id:'language',label:'Language'},{id:'cognitive',label:'Cognitive'}];
+const TARGET_LOW_OZ=19,TARGET_HIGH_OZ=23;
+// axisFmt stays short so y-axis labels never wrap; fmt is the full label.
+const GROWTH_METRICS={
+  weight:{label:'Weight',statLabel:'Latest weight',key:'kg',fmt:fmtLbOz,
+    axisFmt:v=>Math.round(v/0.45359237)+' lb',
+    tables:{fenton:FENTON_BOYS,who:WHO_BOYS},sourceName:'weight'},
+  length:{label:'Length',statLabel:'Latest length',key:'lenCm',fmt:fmtInches,
+    axisFmt:v=>Math.round(v/2.54)+' in',
+    tables:{fenton:FENTON_BOYS_LEN,who:WHO_BOYS_LEN},sourceName:'length'},
+  head:{label:'Head circ.',statLabel:'Latest head circ.',key:'hcCm',fmt:fmtInches,
+    axisFmt:v=>Math.round(v/2.54)+' in',
+    tables:{fenton:FENTON_BOYS_HC,who:WHO_BOYS_HC},sourceName:'head circumference'},
+};
+
+// Attribution comes from the signed-in account, so logs stay attributed
+// without the prototype needing a Mom/Dad selector.
+function loggerName(){
+  const u=auth.currentUser;
+  if(!u)return 'Someone';
+  if(u.displayName)return u.displayName.split(' ')[0];
+  if(u.email)return u.email.split('@')[0];
+  return 'Someone';
+}
+
+let weekCache={sleep:[]};
+function selectSleepBlock(di,bi){
+  const b=weekCache.sleep[di]&&weekCache.sleep[di].blocks[bi];
+  if(!b)return;
+  ui.selectedSleepBlock={day:weekCache.sleep[di].day,typeLabel:b.typeLabel,
+    startLabel:b.startLabel,endLabel:b.endLabel};
+  render();
+}
+
+function chipHtml(label,active,color,onclick,sm){
+  const cls=sm?'chip-sm':'chip';
+  const style=active?`background:${color};border-color:${color};`:'';
+  return `<button class="${cls}${active?' active':''}" style="${style}" onclick="${onclick}">${esc(label)}</button>`;
+}
 
 function render(){
   if(!firebaseReady)return;
   const ages=getAges();
   const corrMonths=ages.corrWeeks/4.33;
+  const chronoMonths=(ages.chronoWeeks*7+ages.chronoRemDays)/30.44;
 
   document.getElementById('navTabs').innerHTML=TABS.map(t=>
     `<button class="nav-tab${ui.tab===t.id?' active':''}" onclick="setTab('${t.id}')">${t.label}</button>`
   ).join('');
 
-  const daily=getDailyOz();
-  const rolling=getRollingAvg(daily);
-  const todayOz=getTodayOz();
-  const recentAvg=rolling.length?rolling[rolling.length-1].avg:0;
-  const tLo=mlToOz(shared.targetLowMlKg*shared.targetWeightKg);
-  const tHi=mlToOz(shared.targetHighMlKg*shared.targetWeightKg);
-  const tMax=tHi*1.45;
-  const todayMlKg=ozToMl(todayOz)/shared.targetWeightKg;
-  const todayStat=targetStatus(todayOz);
-  const avgStat=targetStatus(recentAvg);
-  const stColor={'on-target':'var(--green)','below-target':'var(--red)','above-target':'var(--amber)'};
-  const stLabel={
-    'on-target':'✅ Within target range',
-    'below-target':`⬇️ ${(tLo-todayOz).toFixed(1)} oz below low target`,
-    'above-target':`⬆️ ${(todayOz-tHi).toFixed(1)} oz above high target`,
-  };
-  const td=todayStr();
-  const todayDiapers=shared.diaperLogs.filter(d=>d.date===td).length;
-  const todaySleep=shared.sleepLogs.filter(s=>s.date===td).reduce((a,s)=>a+s.hours,0);
-  const lastW=shared.weightLogs[shared.weightLogs.length-1];
-  const pct=getPct(lastW.kg,corrMonths);
-  const catColor={motor:'tag-motor',social:'tag-social',language:'tag-language',cognitive:'tag-cognitive'};
-  const filtMs=MILESTONES.filter(m=>{
-    if(ui.msFilter==='all')return true;
-    if(ui.msFilter==='achieved')return!!shared.achieved[m.id];
-    if(ui.msFilter==='upcoming')return!shared.achieved[m.id];
-    return m.cat===ui.msFilter;
-  });
-
-  // ── WES HEADER
+  // ── HERO
   let html=`
   <div class="wes-header">
     <div class="wes-avatar">W</div>
-    <div style="flex:1;min-width:0">
+    <div class="wes-info">
       <div class="wes-name">Wesley</div>
-      <div class="wes-meta">
-        Born Feb 28, 2026 · ${BIRTH_GA_WEEKS}w ${BIRTH_GA_DAYS}d GA<br>
-        <span class="wes-badge">🏥 NICU ${NICU_DAYS}d</span>
-        <span class="wes-badge">📅 Chrono: ${ages.chronoWeeks}w ${ages.chronoRemDays}d</span>
-        <span class="wes-badge">🩺 Corrected: ${ages.corrWeeks}w ${ages.corrRemDays}d</span>
-      </div>
+      <div class="wes-meta">Born Feb 28, 2026 · ${BIRTH_GA_WEEKS}w ${BIRTH_GA_DAYS}d GA · <span class="wes-badge">NICU grad · ${NICU_DAYS} days</span></div>
     </div>
     <div class="wes-qs">
-      <div class="wes-q"><div class="v">${todayOz.toFixed(1)}oz</div><div class="k">Today</div></div>
-      <div class="wes-q"><div class="v">${recentAvg.toFixed(1)}oz</div><div class="k">7d Avg</div></div>
-      <div class="wes-q"><div class="v">${lastW.lbs}lb</div><div class="k">${pct}</div></div>
+      <div class="wes-q"><div class="v">${Math.round(corrMonths)}mo</div><div class="k">Corrected</div></div>
+      <div class="wes-q"><div class="v">${Math.round(chronoMonths)}mo</div><div class="k">Chrono</div></div>
     </div>
-  </div>
-
-  <!-- WHO IS LOGGING -->
-  <div class="logger-name-wrap">
-    👤 Logging as:
-    <select onchange="setLogger(this.value)" style="margin-left:4px">
-      <option${ui.loggerName==='Mom'?' selected':''}>Mom</option>
-      <option${ui.loggerName==='Dad'?' selected':''}>Dad</option>
-    </select>
-    <span style="margin-left:auto;font-size:10px;color:var(--ink-faint)">All logs show who added them</span>
   </div>`;
 
-  // ── FEED
+  // ══════════════════════════════════════════════════════════════ FEED
   if(ui.tab==='feed'){
-    const barFill=todayStat==='on-target'?'var(--sage)':todayStat==='below-target'?'var(--terracotta)':'var(--butter-dark)';
+    const week=buildFeedWeek();
+    const isBottle=ui.feedType!=='breast';
+    const totalFeeds=week.reduce((a,d)=>a+d.markers.length,0);
+    const perDay=(totalFeeds/7).toFixed(1);
+    const interval=totalFeeds?(24/(totalFeeds/7)).toFixed(1)+' hr':'—';
+
     html+=`
-    <h2 class="section-title">Feeding Log</h2>
-    <p class="section-sub">Fortified breast milk · shared between Mom & Dad · ml/kg/day targets</p>
-    <div class="stats-row">
-      <div class="stat-pill ${todayStat}">
-        <div class="num">${todayOz.toFixed(1)}<span style="font-size:12px">oz</span></div><div class="lbl">Today</div>
-      </div>
-      <div class="stat-pill ${avgStat}">
-        <div class="num">${recentAvg.toFixed(1)}<span style="font-size:12px">oz</span></div><div class="lbl">7-Day Avg</div>
-      </div>
-      <div class="stat-pill">
-        <div class="num" style="font-size:15px">${tLo.toFixed(1)}–${tHi.toFixed(1)}</div><div class="lbl">Target oz/day</div>
-      </div>
-      <div class="stat-pill">
-        <div class="num" style="font-size:18px">${todayMlKg.toFixed(0)}</div><div class="lbl">ml/kg/day</div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-title">🎯 Daily Intake vs Target
-        <span class="card-action" onclick="toggleUI('showConfig')">${ui.showConfig?'Hide ▲':'⚙️ Targets ▼'}</span>
-      </div>
-      ${ui.showConfig?`
-      <div class="config-box">
-        <div class="config-box-title">⚙️ Target Configuration — synced to both phones</div>
-        <div class="log-form">
-          <div class="field"><label>Weight (kg)</label>
-            <input type="number" inputmode="decimal" step="0.01" value="${shared.targetWeightKg}"
-              onchange="saveTarget('weightKg',parseFloat(this.value)||0)"/></div>
-          <div class="field"><label>Low (ml/kg/day)</label>
-            <input type="number" inputmode="decimal" step="1" value="${shared.targetLowMlKg}"
-              onchange="saveTarget('lowMlKg',parseFloat(this.value)||0)"/></div>
-          <div class="field"><label>High (ml/kg/day)</label>
-            <input type="number" inputmode="decimal" step="1" value="${shared.targetHighMlKg}"
-              onchange="saveTarget('highMlKg',parseFloat(this.value)||0)"/></div>
+    <div class="section-head">
+      <div class="section-title">Today's Feeds</div>
+      <div class="fields">
+        ${chipHtml('Bottle',isBottle,'#2F6FED',"setUI('feedType','bottle')")}
+        ${chipHtml('Breast',!isBottle,'#2F6FED',"setUI('feedType','breast')")}
+        <div class="field">
+          <label>${isBottle?'Amount (oz)':'Duration (min)'}</label>
+          <input type="number" step="0.1" style="width:90px" value="${esc(ui.feedAmt)}"
+            oninput="setField('feedAmt',this.value)" placeholder="${isBottle?'3.2':'18'}"/>
         </div>
-        <div class="config-info">
-          At <strong>${shared.targetWeightKg} kg</strong> ·
-          Low: <strong>${(shared.targetLowMlKg*shared.targetWeightKg).toFixed(0)} ml / ${tLo.toFixed(1)} oz</strong> ·
-          High: <strong>${(shared.targetHighMlKg*shared.targetWeightKg).toFixed(0)} ml / ${tHi.toFixed(1)} oz</strong>
+        <div class="field">
+          <label>Time</label>
+          <input type="time" value="${esc(ui.feedTime)}" oninput="setField('feedTime',this.value)"/>
         </div>
-      </div>`:''}
-      <div style="display:flex;justify-content:space-between;font-size:9.5px;color:var(--ink-faint);margin-bottom:4px">
-        <span>0 oz</span>
-        <span style="color:var(--green);font-weight:600">Target ${tLo.toFixed(1)}–${tHi.toFixed(1)} oz</span>
-        <span>${tMax.toFixed(1)} oz</span>
+        <button class="btn-log" onclick="addFeed()">Log Feed</button>
       </div>
-      <div class="target-bar-track">
-        <div class="target-bar-range" style="left:${(tLo/tMax*100).toFixed(1)}%;width:${((tHi-tLo)/tMax*100).toFixed(1)}%"></div>
-        <div class="target-bar-fill" style="width:${Math.min(100,todayOz/tMax*100).toFixed(1)}%;background:${barFill}"></div>
+    </div>
+
+    <div class="tiles">
+      <div class="tile"><div class="v">${perDay}</div><div class="k">Feeds / day</div></div>
+      <div class="tile"><div class="v">${interval}</div><div class="k">Avg interval</div></div>
+      <div class="tile"><div class="v">${totalFeeds}</div><div class="k">This week</div></div>
+    </div>
+
+    <div class="card card-tight">
+      <div class="card-head">
+        <div class="card-title">Feeding Times This Week</div>
+        <button class="btn-ghost" onclick="toggleUI('showSleepOverlay')">${ui.showSleepOverlay?'Hide sleep times':'Overlay sleep times'}</button>
       </div>
-      <div style="margin-top:7px;font-size:11.5px;color:var(--ink-soft)">
-        Today: <strong style="color:${stColor[todayStat]}">${todayOz.toFixed(1)} oz (${todayMlKg.toFixed(0)} ml/kg/day)</strong> · ${stLabel[todayStat]}
+      <div class="card-sub">${esc(feedPatternSentence(week))}</div>
+      <div class="week-grid">
+        <div class="week-hours">${HOUR_LABELS.map(h=>`<div class="week-hour" style="top:${h.topPct}%">${h.label}</div>`).join('')}</div>
+        ${week.map(d=>`
+          <div>
+            <div class="week-day-label">${d.day}</div>
+            <div class="week-track">
+              ${ui.showSleepOverlay?d.sleepBlocks.map(b=>
+                `<div class="sleep-overlay" style="top:${b.topPct}%;height:${b.heightPct}%;background:${b.color}"></div>`).join(''):''}
+              ${d.markers.map(m=>
+                `<div class="feed-marker" style="top:${m.topPct}%;background:${m.color}"></div>`).join('')}
+            </div>
+          </div>`).join('')}
       </div>
-      <div style="margin-top:3px;font-size:11px;color:var(--ink-faint)">
-        7-day avg: <strong style="color:${stColor[avgStat]}">${recentAvg.toFixed(1)} oz/day</strong> ·
-        ${avgStat==='on-target'?'✅ On track':avgStat==='below-target'?`needs +${(tLo-recentAvg).toFixed(1)} oz/day`:`${(recentAvg-tHi).toFixed(1)} oz above target`}
+      <div class="legend">
+        <span><i style="background:#2F6FED"></i>Bottle</span>
+        <span><i style="background:#06B6D4"></i>Breast</span>
+        ${ui.showSleepOverlay?`<span><i class="sq" style="background:#64748B;opacity:.6"></i>Nap</span>
+        <span><i class="sq" style="background:#06B6D4;opacity:.6"></i>Night sleep</span>`:''}
+      </div>
+    </div>`;
+
+    // 7-day trend: bottle oz + breast session count
+    const days=last7Days();
+    const trend=days.map((d,i)=>{
+      const feeds=shared.feedLogs.filter(f=>f.date===d.key);
+      const oz=feeds.filter(f=>f.type!=='breast').reduce((a,f)=>a+(+f.amt||0),0);
+      const breast=feeds.filter(f=>f.type==='breast').length;
+      return {day:d.dow,oz:Math.round(oz*10)/10,breast};
+    });
+    const maxOz=Math.max(...trend.map(t=>t.oz),TARGET_HIGH_OZ)*1.15;
+    const maxBreast=Math.max(...trend.map(t=>t.breast),1)*1.15;
+
+    html+=`
+    <div class="card">
+      <div class="card-title" style="margin-bottom:16px">7-Day Trend</div>
+      <div class="trend">
+        ${trend.map(b=>`
+          <div class="trend-col">
+            <div class="trend-vals"><span>${b.oz||''}</span><span style="color:#06B6D4">${b.breast?b.breast+'x':''}</span></div>
+            <div class="trend-bars">
+              <div class="trend-bar" style="height:${pctClamp(b.oz,maxOz)}%;background:${(b.oz<TARGET_LOW_OZ||b.oz>TARGET_HIGH_OZ)?'#A9C0EC':'#2F6FED'}"></div>
+              <div class="trend-bar" style="height:${pctClamp(b.breast,maxBreast)}%;background:#06B6D4"></div>
+            </div>
+            <div class="trend-day">${b.day}</div>
+          </div>`).join('')}
+      </div>
+      <div class="legend" style="margin-top:10px">
+        <span><b style="background:#2F6FED"></b>Bottle oz</span>
+        <span><b style="background:#06B6D4"></b>Breast sessions</span>
       </div>
     </div>
 
     <div class="card">
-      <div class="card-title">📊 Daily Oz — 14 Days</div>
-      ${buildFeedChart(daily.slice(-14),'oz','#2F6FED',tLo,tHi,155)}
-      <div class="chart-legend">
-        <span><svg width="18" height="3"><line x1="0" y1="1.5" x2="18" y2="1.5" stroke="#2F6FED" stroke-width="2.5"/></svg> Daily oz</span>
-        <span><svg width="18" height="3"><line x1="0" y1="1.5" x2="18" y2="1.5" stroke="#0B7A5A" stroke-width="1.5" stroke-dasharray="5 3"/></svg> High</span>
-        <span><svg width="18" height="3"><line x1="0" y1="1.5" x2="18" y2="1.5" stroke="#12B886" stroke-width="1.5" stroke-dasharray="5 3"/></svg> Low</span>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-title">📈 7-Day Rolling Average</div>
-      ${buildFeedChart(rolling.slice(-14),'avg','#06B6D4',tLo,tHi,135)}
-      <div style="margin-top:7px;font-size:11px;color:var(--ink-faint)">
-        Trend: <strong style="color:#4A7A96">${recentAvg.toFixed(1)} oz/day</strong> ·
-        ${recentAvg<tLo?`needs +${(tLo-recentAvg).toFixed(1)} oz/day`:recentAvg>tHi?`${(recentAvg-tHi).toFixed(1)} oz above target`:'within target ✅'}
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-title">➕ Log a Feed</div>
-      <div class="log-form">
-        <div class="field"><label>Type</label>
-          <select onchange="setUI('feedType',this.value)">
-            <option value="bottle"${ui.feedType==='bottle'?' selected':''}>🍼 Bottle</option>
-            <option value="breast"${ui.feedType==='breast'?' selected':''}>🤱 Breastfeed</option>
-            <option value="solid"${ui.feedType==='solid'?' selected':''}>🥄 Solid Food</option>
-          </select>
-        </div>
-        ${ui.feedType==='breast'?`
-        <div class="field"><label>Duration (min)</label>
-          <input type="number" inputmode="decimal" placeholder="15" value="${ui.feedDuration}"
-            onchange="setUI('feedDuration',this.value)"/></div>`:`
-        <div class="field"><label>Amount</label>
-          <input type="number" inputmode="decimal" step="0.1" placeholder="3.0" value="${ui.feedAmt}"
-            onchange="setUI('feedAmt',this.value)"/></div>
-        <div class="field"><label>Unit</label>
-          <select onchange="setUI('feedUnit',this.value)">
-            <option value="oz"${ui.feedUnit==='oz'?' selected':''}>oz</option>
-            <option value="ml"${ui.feedUnit==='ml'?' selected':''}>ml</option>
-          </select>
-        </div>`}
-        <button class="btn btn-primary" onclick="addFeed()">Log</button>
-      </div>
-      ${ui.feedType!=='breast'&&ui.feedAmt?`
-      <div style="margin-top:7px;font-size:11px;color:var(--ink-faint)">
-        ${ui.feedUnit==='oz'?`${ui.feedAmt} oz = ${(parseFloat(ui.feedAmt)*29.57).toFixed(0)} ml`:`${ui.feedAmt} ml = ${(parseFloat(ui.feedAmt)/29.57).toFixed(2)} oz`}
-      </div>`:''}
-    </div>
-
-    <div class="card">
-      <div class="card-title">📋 Recent Feeds</div>
+      <div class="card-title" style="margin-bottom:14px">Recent</div>
       <div class="log-list">
-        ${shared.feedLogs.slice(0,15).map((f,i)=>`
-        <div class="log-item">
-          <span class="log-icon">${f.type==='breast'?'🤱':f.type==='bottle'?'🍼':'🥄'}</span>
-          <div class="log-detail">
-            <div class="log-title">${f.type==='breast'?`Breastfeed${f.duration?` · ${f.duration} min`:''}`:f.type==='bottle'?`Bottle · ${f.amt} oz (${(f.amt*29.57).toFixed(0)} ml)`:`Solid · ${f.amt} oz`}</div>
-            <div class="log-time">${f.date} at ${f.time} <span class="log-who">· ${f.by||''}</span></div>
-          </div>
-          <span class="log-badge badge-${f.type}">${f.type}</span>
-          <span class="log-del" onclick="deleteFeed('${f._key}')">×</span>
-        </div>`).join('')}
+        ${shared.feedLogs.slice().sort((a,b)=>(b.ts||0)-(a.ts||0)).slice(0,12).map(f=>`
+          <div class="log-row">
+            <div class="log-dot" style="background:${feedColor(f.type)}"></div>
+            <div class="log-main">
+              <div class="log-label">${f.type==='breast'?'Breast':'Bottle'} · ${f.type==='breast'?(f.duration||0)+' min':(f.amt||0)+' oz'}</div>
+              <div class="log-meta">${esc(f.time||'')} · ${esc(f.date||'')}${f.by?' · logged by '+esc(f.by):''}</div>
+            </div>
+            <div class="log-del" onclick="deleteFeed('${f.key}')">×</div>
+          </div>`).join('')||'<div class="log-meta">No feeds logged yet.</div>'}
       </div>
     </div>`;
   }
 
-  // ── GROWTH
+  // ══════════════════════════════════════════════════════════════ GROWTH
   if(ui.tab==='growth'){
-    const gained=(lastW.lbs-shared.weightLogs[0].lbs).toFixed(1);
-    const dispPct=ui.growthMode==='fenton'?getFentonPct(lastW.kg,lastW.gaWeeks):pct;
+    const metric=GROWTH_METRICS[ui.growthMetric]||GROWTH_METRICS.weight;
+    const chartMode=ui.growthMode==='gestational'?'fenton':'who';
+    const logs=shared.weightLogs.slice();
+    const gc=buildGrowthChart(logs,chartMode,metric.key,metric.tables,metric.fmt,metric.axisFmt);
+    const src=chartMode==='fenton'?metric.tables.fenton:metric.tables.who;
+    const srcKeys=Object.keys(src).map(Number).sort((a,b)=>a-b);
+    const withVal=logs.filter(w=>w[metric.key]!=null&&!isNaN(w[metric.key]));
+    const last=withVal[withVal.length-1],prev=withVal[withVal.length-2];
+    const lastX=last?(ui.growthMode==='gestational'?last.gaWeeks:last.corrMonths):0;
+    let deltaText='—';
+    if(last&&prev){
+      if(metric.key==='kg'){
+        const dLb=(last.kg-prev.kg)/0.45359237;
+        let w=Math.floor(dLb),o=Math.round((dLb-w)*16);
+        if(o===16){o=0;w+=1;}
+        deltaText=(dLb>=0?'+':'')+w+' lb '+o+' oz';
+      } else {
+        const d=(last[metric.key]-prev[metric.key])/2.54;
+        deltaText=(d>=0?'+':'')+d.toFixed(1)+' in';
+      }
+    }
+
     html+=`
-    <h2 class="section-title">Growth & Weight</h2>
-    <p class="section-sub">Fenton preterm & WHO growth curves with percentile bands</p>
-    <div class="info-pill">🩺 Born ${BIRTH_GA_WEEKS}w ${BIRTH_GA_DAYS}d · NICU ${NICU_DAYS}d · Discharged ~${ages.discharge.toLocaleDateString([],{month:'long',day:'numeric'})} · Corrected age ${ages.corrWeeks}w ${ages.corrRemDays}d</div>
-    <div class="stats-row">
-      <div class="stat-pill"><div class="num">${lastW.lbs}<span style="font-size:12px">lbs</span></div><div class="lbl">Weight</div></div>
-      <div class="stat-pill"><div class="num">${lastW.kg}<span style="font-size:12px">kg</span></div><div class="lbl">Kilograms</div></div>
-      <div class="stat-pill"><div class="num" style="font-size:15px">${dispPct}</div><div class="lbl">${ui.growthMode==='fenton'?'Fenton %ile':'WHO %ile'}</div></div>
-      <div class="stat-pill"><div class="num">+${gained}<span style="font-size:12px">lb</span></div><div class="lbl">Since Birth</div></div>
-    </div>
-    <div class="card">
-      <div class="card-title">📈 Growth Chart</div>
-      <div class="toggle-row">
-        <button class="toggle-btn${ui.growthMode==='fenton'?' active':''}" onclick="setUI('growthMode','fenton')">Fenton Preterm 2013</button>
-        <button class="toggle-btn${ui.growthMode==='who'?' active':''}" onclick="setUI('growthMode','who')">WHO Corrected Age</button>
-      </div>
-      ${ui.growthMode==='fenton'
-        ?`<div class="notice">📊 <strong>Fenton 2013</strong> — x-axis: GA weeks. Standard NICU preterm chart.</div>`
-        :`<div class="notice">📊 <strong>WHO Boys</strong> — x-axis: corrected age in months.</div>`}
-      ${buildGrowthChart(shared.weightLogs,ui.growthMode)}
-      <div class="chart-legend" style="margin-top:10px">
-        <span><svg width="18" height="3"><line x1="0" y1="1.5" x2="18" y2="1.5" stroke="#2F6FED" stroke-width="2.8"/></svg> Wes</span>
-        <span><svg width="18" height="3"><line x1="0" y1="1.5" x2="18" y2="1.5" stroke="#12B886" stroke-width="2"/></svg> 50th</span>
-        <span><svg width="18" height="3"><line x1="0" y1="1.5" x2="18" y2="1.5" stroke="#94A3B8" stroke-width="1.5" stroke-dasharray="5 3"/></svg> 10th/90th</span>
-        <span><svg width="18" height="3"><line x1="0" y1="1.5" x2="18" y2="1.5" stroke="#CBD5E1" stroke-width="1.5" stroke-dasharray="5 3"/></svg> 3rd/97th</span>
+    <div class="section-title">Growth</div>
+    <div class="section-sub">Weight vs. WHO / Fenton growth curves</div>
+
+    <div class="card card-tight">
+      <div class="card-title" style="margin-bottom:14px">Quick log</div>
+      <div class="fields">
+        <div class="field"><label>Weight (lb)</label><input type="number" style="width:64px" value="${esc(ui.newWeightLb)}" oninput="setField('newWeightLb',this.value)"/></div>
+        <div class="field"><label>(oz)</label><input type="number" style="width:64px" value="${esc(ui.newWeightOz)}" oninput="setField('newWeightOz',this.value)"/></div>
+        <div class="field"><label>Length (in)</label><input type="number" step="0.1" style="width:78px" value="${esc(ui.newLength)}" oninput="setField('newLength',this.value)"/></div>
+        <div class="field"><label>Head circ. (in)</label><input type="number" step="0.1" style="width:78px" value="${esc(ui.newHeadCirc)}" oninput="setField('newHeadCirc',this.value)"/></div>
+        <div class="field"><label>Date</label><input type="date" value="${esc(ui.newMeasureDate)}" oninput="setField('newMeasureDate',this.value)"/></div>
+        <button class="btn-log" onclick="addMeasurement()">Log Measurement</button>
       </div>
     </div>
-    <div class="card">
-      <div class="card-title">➕ Log Weight</div>
-      <div class="log-form">
-        <div class="field"><label>Weight</label>
-          <input type="number" inputmode="decimal" step="0.1" placeholder="7.2"
-            value="${ui.weightInput}" onchange="setUI('weightInput',this.value)"/></div>
-        <div class="field"><label>Unit</label>
-          <select onchange="setUI('weightUnit',this.value)">
-            <option value="lbs"${ui.weightUnit==='lbs'?' selected':''}>lbs</option>
-            <option value="kg"${ui.weightUnit==='kg'?' selected':''}>kg</option>
-          </select>
-        </div>
-        <button class="btn btn-primary" onclick="addWeight()">Log</button>
-      </div>
+
+    <div class="chip-row">
+      ${Object.keys(GROWTH_METRICS).map(k=>
+        chipHtml(GROWTH_METRICS[k].label,ui.growthMetric===k,'#2F6FED',`setUI('growthMetric','${k}')`)).join('')}
     </div>
-    <div class="card">
-      <div class="card-title">📋 Weight History</div>
-      <div class="log-list">
-        ${[...shared.weightLogs].reverse().map(w=>`
-        <div class="log-item">
-          <span class="log-icon">⚖️</span>
-          <div class="log-detail">
-            <div class="log-title">${w.lbs} lbs · ${w.kg} kg</div>
-            <div class="log-time">${w.date} · GA ${w.gaWeeks}w · ${getPct(w.kg,w.corrMonths)} WHO <span class="log-who">· ${w.by||''}</span></div>
+
+    <div class="growth-panel">
+      <div class="tiles">
+        <div class="tile"><div class="v">${last?esc(metric.fmt(last[metric.key])):'—'}</div><div class="k">${esc(metric.statLabel)}</div></div>
+        <div class="tile"><div class="v" style="color:var(--ink)">${last?esc(getPctLabel(last[metric.key],src,srcKeys,lastX)):'—'}</div><div class="k">Percentile</div></div>
+        <div class="tile"><div class="v" style="color:#12B886">${esc(deltaText)}</div><div class="k">Since last</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">Growth curve</div>
+          <div class="chip-row-sm">
+            ${chipHtml('Corrected',ui.growthMode==='corrected','#12B886',"setUI('growthMode','corrected')",true)}
+            ${chipHtml('Gestational',ui.growthMode==='gestational','#12B886',"setUI('growthMode','gestational')",true)}
           </div>
-          <span class="log-badge" style="background:var(--sand);color:var(--ink-soft)">${getFentonPct(w.kg,w.gaWeeks)}</span>
-        </div>`).join('')}
+        </div>
+        <div class="card-sub">${chartMode==='fenton'
+          ?`Fenton preterm growth curve (percentiles by gestational age) — ${metric.sourceName}`
+          :`WHO growth curve (percentiles by corrected age) — ${metric.sourceName}`}</div>
+        ${growthChartHtml(gc)}
+        <div class="gc-legend">
+          ${gc.curves.map(c=>`<span><i style="background:${c.stroke}"></i>${c.label} percentile</span>`).join('')}
+          <span><i style="background:#2F6FED"></i>Wesley's ${metric.label.toLowerCase()}</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head" style="margin-bottom:14px">
+          <div class="card-title">Measurement log</div>
+          <div class="chip-row-sm">
+            ${chipHtml('Corrected',ui.growthMode==='corrected','#12B886',"setUI('growthMode','corrected')",true)}
+            ${chipHtml('Gestational',ui.growthMode==='gestational','#12B886',"setUI('growthMode','gestational')",true)}
+          </div>
+        </div>
+        <div class="log-list">
+          ${logs.slice().reverse().map(w=>{
+            const x=ui.growthMode==='gestational'?w.gaWeeks:w.corrMonths;
+            const has=w[metric.key]!=null&&!isNaN(w[metric.key]);
+            const ageLabel=ui.growthMode==='gestational'
+              ?`${Math.floor(w.gaWeeks)}w ${Math.round((w.gaWeeks-Math.floor(w.gaWeeks))*7)}d GA`
+              :`${(+w.corrMonths||0).toFixed(1)}mo corrected`;
+            return `<div class="log-row">
+              <div class="log-main">
+                <div class="log-label">${esc(w.date)} — ${has?esc(metric.fmt(w[metric.key])):'not recorded'}</div>
+                <div class="log-meta">${esc(ageLabel)}</div>
+              </div>
+              ${has?`<div class="log-pct">${esc(getPctLabel(w[metric.key],src,srcKeys,x))}</div>`:''}
+            </div>`;
+          }).join('')}
+        </div>
       </div>
     </div>`;
   }
 
-  // ── DIAPERS
-  if(ui.tab==='diaper'){
-    html+=`
-    <h2 class="section-title">Diaper Log</h2>
-    <p class="section-sub">Shared between Mom & Dad in real time</p>
-    <div class="stats-row">
-      <div class="stat-pill"><div class="num">${todayDiapers}</div><div class="lbl">Today</div></div>
-      <div class="stat-pill"><div class="num">${shared.diaperLogs.filter(d=>d.type==='wet').length}</div><div class="lbl">💧 Wet</div></div>
-      <div class="stat-pill"><div class="num">${shared.diaperLogs.filter(d=>d.type==='dirty').length}</div><div class="lbl">💩 Dirty</div></div>
-      <div class="stat-pill"><div class="num">${shared.diaperLogs.filter(d=>d.type==='both').length}</div><div class="lbl">Both</div></div>
-    </div>
-    <div class="card">
-      <div class="card-title">➕ Log a Diaper</div>
-      <div class="log-form">
-        <div class="field"><label>Type</label>
-          <select onchange="setUI('diaperType',this.value)">
-            <option value="wet"${ui.diaperType==='wet'?' selected':''}>💧 Wet</option>
-            <option value="dirty"${ui.diaperType==='dirty'?' selected':''}>💩 Dirty</option>
-            <option value="both"${ui.diaperType==='both'?' selected':''}>Both</option>
-          </select>
-        </div>
-        <button class="btn btn-sky" onclick="addDiaper()">Log</button>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-title">📋 Recent Diapers</div>
-      <div class="log-list">
-        ${shared.diaperLogs.slice(0,15).map((d,i)=>`
-        <div class="log-item">
-          <span class="log-icon">${d.type==='wet'?'💧':d.type==='dirty'?'💩':'🔄'}</span>
-          <div class="log-detail">
-            <div class="log-title">${d.type==='wet'?'Wet':d.type==='dirty'?'Dirty':'Wet + Dirty'} Diaper</div>
-            <div class="log-time">${d.date} at ${d.time} <span class="log-who">· ${d.by||''}</span></div>
-          </div>
-          <span class="log-badge badge-${d.type}">${d.type}</span>
-          <span class="log-del" onclick="deleteDiaper('${d._key}')">×</span>
-        </div>`).join('')}
-      </div>
-    </div>`;
-  }
-
-  // ── SLEEP
+  // ══════════════════════════════════════════════════════════════ SLEEP
   if(ui.tab==='sleep'){
-    const nightH=shared.sleepLogs.filter(s=>s.type==='night'&&s.date===td).reduce((a,s)=>a+s.hours,0);
-    const napH=shared.sleepLogs.filter(s=>s.type==='nap'&&s.date===td).reduce((a,s)=>a+s.hours,0);
-    const napCt=shared.sleepLogs.filter(s=>s.type==='nap'&&s.date===td).length;
+    const week=buildSleepWeek();
+    weekCache.sleep=week;
+    const td=todayStr();
+    const todays=shared.sleepLogs.filter(s=>s.date===td);
+    const napToday=todays.filter(s=>s.type==='nap').length;
+    const nights=shared.sleepLogs.filter(s=>s.type==='night');
+    const longestNight=nights.length?Math.max(...nights.map(s=>+s.hours||0)):0;
+    const naps=shared.sleepLogs.filter(s=>s.type==='nap');
+    const avgNap=naps.length?naps.reduce((a,s)=>a+(+s.hours||0),0)/naps.length:0;
+    const hm=h=>`${Math.floor(h)}h ${Math.round((h-Math.floor(h))*60)}m`;
+    const sel=ui.selectedSleepBlock;
+
     html+=`
-    <h2 class="section-title">Sleep Tracker</h2>
-    <p class="section-sub">Shared between Mom & Dad in real time</p>
-    <div class="stats-row">
-      <div class="stat-pill"><div class="num">${todaySleep.toFixed(1)}h</div><div class="lbl">Total</div></div>
-      <div class="stat-pill"><div class="num">${nightH.toFixed(1)}h</div><div class="lbl">🌙 Night</div></div>
-      <div class="stat-pill"><div class="num">${napH.toFixed(1)}h</div><div class="lbl">☀️ Naps</div></div>
-      <div class="stat-pill"><div class="num">${napCt}</div><div class="lbl">Nap Count</div></div>
-    </div>
-    <div class="card">
-      <div class="card-title">➕ Log Sleep</div>
-      <div class="log-form">
-        <div class="field"><label>Type</label>
-          <select onchange="setUI('sleepType',this.value)">
-            <option value="night"${ui.sleepType==='night'?' selected':''}>🌙 Night</option>
-            <option value="nap"${ui.sleepType==='nap'?' selected':''}>☀️ Nap</option>
-          </select>
-        </div>
-        <div class="field"><label>Start</label>
-          <input type="time" value="${ui.sleepStart}" onchange="setUI('sleepStart',this.value)"/></div>
-        <div class="field"><label>End</label>
-          <input type="time" value="${ui.sleepEnd}" onchange="setUI('sleepEnd',this.value)"/></div>
-        <button class="btn btn-sage" onclick="addSleep()">Log</button>
+    <div class="section-head">
+      <div class="section-title">Sleep</div>
+      <div class="fields">
+        <div class="field"><label>Start</label><input type="time" value="${esc(ui.sleepStart)}" oninput="setField('sleepStart',this.value)"/></div>
+        <div class="field"><label>End</label><input type="time" value="${esc(ui.sleepEnd)}" oninput="setField('sleepEnd',this.value)"/></div>
+        <button class="btn-log" onclick="addSleep()">Log Sleep</button>
       </div>
     </div>
+
+    <div class="tiles">
+      <div class="tile"><div class="v" style="color:#64748B">${napToday}</div><div class="k">Naps today</div></div>
+      <div class="tile"><div class="v" style="color:#06B6D4">${hm(longestNight)}</div><div class="k">Longest night stretch</div></div>
+      <div class="tile"><div class="v" style="color:var(--ink)">${hm(avgNap)}</div><div class="k">Avg nap length</div></div>
+    </div>
+
+    <div class="card card-tight">
+      <div class="card-head">
+        <div class="card-title">Sleep Blocks This Week</div>
+        <button class="btn-ghost" onclick="toggleUI('showFeedOverlay')">${ui.showFeedOverlay?'Hide feed times':'Overlay feed times'}</button>
+      </div>
+      <div class="card-sub">Tap a block to see its start and stop time</div>
+      ${sel?`<div class="sel-block">${esc(sel.day)} · ${esc(sel.typeLabel)} · ${esc(sel.startLabel)} – ${esc(sel.endLabel)}</div>`:''}
+      <div class="week-grid">
+        <div class="week-hours">${HOUR_LABELS.map(h=>`<div class="week-hour" style="top:${h.topPct}%">${h.label}</div>`).join('')}</div>
+        ${week.map((d,di)=>`
+          <div>
+            <div class="week-day-label">${d.day}</div>
+            <div class="week-track">
+              ${d.blocks.map((b,bi)=>
+                `<div class="sleep-block" style="top:${b.topPct}%;height:${b.heightPct}%;background:${b.color}" onclick="selectSleepBlock(${di},${bi})"></div>`).join('')}
+              ${ui.showFeedOverlay?d.feedMarkers.map(m=>
+                `<div class="feed-overlay" style="top:${m.topPct}%;background:${m.color}"></div>`).join(''):''}
+            </div>
+          </div>`).join('')}
+      </div>
+      <div class="legend">
+        <span><i style="background:#64748B"></i>Nap</span>
+        <span><i style="background:#06B6D4"></i>Night</span>
+        ${ui.showFeedOverlay?`<span><i style="background:#F97316"></i>Bottle</span>
+        <span><i style="background:#F5B301"></i>Breast</span>`:''}
+      </div>
+    </div>`;
+
+    const days=last7Days();
+    const bars=days.map(d=>{
+      const ss=shared.sleepLogs.filter(s=>s.date===d.key);
+      return {day:d.dow,
+        nap:ss.filter(s=>s.type==='nap').reduce((a,s)=>a+(+s.hours||0),0),
+        night:ss.filter(s=>s.type==='night').reduce((a,s)=>a+(+s.hours||0),0)};
+    });
+    const maxSleep=Math.max(...bars.map(b=>Math.max(b.nap,b.night)),1)*1.15;
+
+    html+=`
     <div class="card">
-      <div class="card-title">📋 Sleep Sessions</div>
+      <div class="card-title" style="margin-bottom:16px">7-Day Trend</div>
+      <div class="trend">
+        ${bars.map(b=>`
+          <div class="trend-col">
+            <div class="trend-vals"><span style="color:#64748B">${b.nap?b.nap.toFixed(1)+'h':''}</span><span style="color:#06B6D4">${b.night?b.night.toFixed(1)+'h':''}</span></div>
+            <div class="trend-bars">
+              <div class="trend-bar" style="height:${pctClamp(b.nap,maxSleep)}%;background:#64748B"></div>
+              <div class="trend-bar" style="height:${pctClamp(b.night,maxSleep)}%;background:#06B6D4"></div>
+            </div>
+            <div class="trend-day">${b.day}</div>
+          </div>`).join('')}
+      </div>
+      <div class="legend" style="margin-top:12px">
+        <span><i style="background:#64748B"></i>Nap</span>
+        <span><i style="background:#06B6D4"></i>Night</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title" style="margin-bottom:14px">Recent</div>
       <div class="log-list">
-        ${shared.sleepLogs.slice(0,12).map((s,i)=>`
-        <div class="log-item">
-          <span class="log-icon">${s.type==='night'?'🌙':'☀️'}</span>
-          <div class="log-detail">
-            <div class="log-title">${s.type==='night'?'Night Sleep':'Nap'} · ${s.hours}h · ${s.start} – ${s.end}</div>
-            <div class="log-time">${s.date} <span class="log-who">· ${s.by||''}</span></div>
-          </div>
-          <span class="log-badge" style="background:${s.type==='night'?'#DCF7FD':'#F1F5F9'};color:${s.type==='night'?'#0A7A8F':'#475569'}">${s.hours}h</span>
-          <span class="log-del" onclick="deleteSleep('${s._key}')">×</span>
-        </div>`).join('')}
+        ${shared.sleepLogs.slice().sort((a,b)=>(b.ts||0)-(a.ts||0)).slice(0,12).map(s=>`
+          <div class="log-row">
+            <div class="log-dot" style="background:${sleepColor(s.type)}"></div>
+            <div class="log-main">
+              <div class="log-label">${s.type==='nap'?'Nap':'Night sleep'} · ${esc(hm(+s.hours||0))}</div>
+              <div class="log-meta">${esc(s.start||'')}–${esc(s.end||'')} · ${esc(s.date||'')}${s.by?' · logged by '+esc(s.by):''}</div>
+            </div>
+            <div class="log-del" onclick="deleteSleep('${s.key}')">×</div>
+          </div>`).join('')||'<div class="log-meta">No sleep logged yet.</div>'}
       </div>
     </div>`;
   }
 
-  // ── MILESTONES
+  // ══════════════════════════════════════════════════════════════ MILESTONES
   if(ui.tab==='milestones'){
+    const achievedCount=Object.keys(shared.achieved||{}).length;
+    const filtered=MILESTONES.filter(m=>{
+      if(ui.msFilter==='all')return true;
+      if(ui.msFilter==='achieved')return !!shared.achieved[m.id];
+      if(ui.msFilter==='upcoming')return !shared.achieved[m.id];
+      return m.cat===ui.msFilter;
+    });
+    const msAgeText=ui.msAgeMode==='corrected'
+      ?`${Math.round(corrMonths)}mo corrected`
+      :`${ages.curGAWeeks}w ${ages.curGARemDays}d GA`;
+
     html+=`
-    <h2 class="section-title">Milestones & Activities</h2>
-    <p class="section-sub">Corrected age: ${ages.corrWeeks}w ${ages.corrRemDays}d (${corrMonths.toFixed(1)} months)</p>
-    <div class="notice">🩺 Milestones assessed at <strong>corrected age</strong> — adjusted for prematurity. Either parent can mark achievements.</div>
-    <div class="toggle-row">
-      ${['all','achieved','upcoming','motor','social','language','cognitive'].map(f=>
-        `<button class="toggle-btn${ui.msFilter===f?' active':''}" onclick="setUI('msFilter','${f}')">${f==='all'?'All':f[0].toUpperCase()+f.slice(1)}</button>`
-      ).join('')}
-    </div>
-    <div style="margin-bottom:9px;font-size:11.5px;color:var(--ink-faint)">
-      ✅ ${Object.keys(shared.achieved).length} of ${MILESTONES.length} achieved · Tap to toggle
-    </div>
-    <div class="milestone-grid" style="margin-bottom:26px">
-      ${filtMs.map(m=>{
-        const isA=!!shared.achieved[m.id];
-        const isO=!isA&&m.ageMonths<corrMonths;
-        return`<div class="milestone-item${isA?' achieved':isO?' overdue':''}" onclick="toggleMs(${m.id})">
-          <div class="milestone-check">${isA?'✓':''}</div>
-          <div class="milestone-info">
-            <div class="milestone-name">${m.name}</div>
-            <div class="milestone-age">${isA?`✅ Achieved ${shared.achieved[m.id]}`:isO?`⚠️ Expected by ${m.ageRange} corrected`:`🔜 Expected ${m.ageRange} corrected`}</div>
+    <div class="section-title" style="margin-bottom:18px">Milestones</div>
+
+    <div class="card card-tight">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+        <div class="card-title">${achievedCount} / ${MILESTONES.length} milestones achieved</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="font-size:11px;color:var(--muted)">${esc(msAgeText)}</div>
+          <div class="chip-row-sm">
+            ${chipHtml('Corrected',ui.msAgeMode==='corrected','#12B886',"setUI('msAgeMode','corrected')",true)}
+            ${chipHtml('Gestational',ui.msAgeMode==='gestational','#12B886',"setUI('msAgeMode','gestational')",true)}
           </div>
-          <span class="milestone-tag ${catColor[m.cat]}">${m.cat}</span>
-        </div>`;
-      }).join('')}
+        </div>
+      </div>
+      <div class="ms-progress-track"><div class="ms-progress-fill" style="width:${pctClamp(achievedCount,MILESTONES.length)}%"></div></div>
     </div>
-    <h3 style="font-family:'Fraunces',serif;font-size:18px;margin-bottom:5px;color:var(--ink)">🎈 Activities for Wes</h3>
-    <p style="font-size:11.5px;color:var(--ink-faint);margin-bottom:12px">Age-appropriate play ideas based on corrected developmental stage</p>
-    <div class="activity-grid">
+
+    <div class="chip-row" style="gap:6px">
+      ${MS_FILTERS.map(f=>chipHtml(f.label,ui.msFilter===f.id,'#1A1A2E',`setUI('msFilter','${f.id}')`)).join('')}
+    </div>
+
+    <div class="card" style="margin-bottom:20px">
+      ${filtered.map(m=>{
+        const ach=!!shared.achieved[m.id];
+        const c=CAT_COLORS[m.cat]||CAT_COLORS.motor;
+        return `<div class="ms-item" onclick="toggleMs(${m.id})">
+          <div class="ms-dot" style="background:${ach?'#12B886':'#DDE3EA'}">${ach?'✓':''}</div>
+          <div class="ms-info">
+            <div class="ms-name">${esc(m.name)}</div>
+            <div class="ms-age">${ach?'Achieved '+esc(shared.achieved[m.id]):esc(m.ageRange)}</div>
+          </div>
+          <div class="ms-tag" style="background:${c.bg};color:${c.fg}">${m.cat.charAt(0).toUpperCase()+m.cat.slice(1)}</div>
+        </div>`;
+      }).join('')||'<div class="log-meta">Nothing matches this filter.</div>'}
+    </div>
+
+    <div class="card-title" style="margin-bottom:12px">Suggested activities</div>
+    <div class="act-row">
       ${ACTIVITIES.map(a=>`
-      <div class="activity-card">
-        <div class="activity-icon">${a.icon}</div>
-        <div class="activity-name">${a.name}</div>
-        <div class="activity-desc">${a.desc}</div>
-        <div class="activity-age">${a.age}</div>
-      </div>`).join('')}
+        <div class="act-card">
+          <div class="act-icon">${a.icon}</div>
+          <div class="act-name">${esc(a.name)}</div>
+          <div class="act-desc">${esc(a.desc)}</div>
+          <div class="act-age">${esc(a.age)}</div>
+        </div>`).join('')}
     </div>`;
   }
 
@@ -1276,37 +1399,25 @@ function render(){
 // ─────────────────────────────────────────────────────────────────────────────
 // ACTIONS
 // ─────────────────────────────────────────────────────────────────────────────
+function setField(k,v){ui[k]=v;}
 function setTab(t){ui.tab=t;render();window.scrollTo(0,0);}
 function setUI(k,v){ui[k]=v;render();}
 function toggleUI(k){ui[k]=!ui[k];render();}
-function setLogger(name){
-  ui.loggerName=name;
-  localStorage.setItem('wesworld-logger',name);
-  render();
-}
-
-function saveTarget(key,val){
-  shared['target'+key[0].toUpperCase()+key.slice(1).replace(/Ml/,'Ml')] = val;
-  db.ref('wesworld/targets').update({[key]:val});
-}
-
-// Map target keys
-function saveTarget(key,val){
-  const map={weightKg:'targetWeightKg',lowMlKg:'targetLowMlKg',highMlKg:'targetHighMlKg'};
-  if(map[key]) shared[map[key]]=val;
-  db.ref('wesworld/targets').update({[key]:val});
-  render();
-}
-
 function addFeed(){
-  let amtOz=parseFloat(ui.feedAmt)||0;
-  if(ui.feedType!=='breast'&&ui.feedUnit==='ml') amtOz=mlToOz(amtOz);
-  if(ui.feedType!=='breast'&&amtOz<=0){showToast('Enter an amount');return;}
-  const log={type:ui.feedType,time:nowStr(),date:todayStr(),by:ui.loggerName,ts:Date.now()};
-  if(ui.feedType!=='breast') log.amt=Math.round(amtOz*10)/10;
-  else log.duration=parseInt(ui.feedDuration)||0;
+  const isBottle=ui.feedType!=='breast';
+  const val=parseFloat(ui.feedAmt)||0;
+  if(val<=0){showToast(isBottle?'Enter an amount':'Enter a duration');return;}
+  const [hh,mm]=(ui.feedTime||'00:00').split(':').map(Number);
+  const when=new Date();when.setHours(hh||0,mm||0,0,0);
+  const log={
+    type:isBottle?'bottle':'breast',
+    time:when.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),
+    date:MONTHS[when.getMonth()]+' '+when.getDate(),
+    by:loggerName(),ts:when.getTime()
+  };
+  if(isBottle) log.amt=Math.round(val*10)/10; else log.duration=Math.round(val);
   db.ref('wesworld/feedLogs').push(log);
-  ui.feedAmt='';ui.feedDuration='';
+  ui.feedAmt='';
   showToast('Feed logged ✓');render();
 }
 
@@ -1316,26 +1427,18 @@ function deleteFeed(key){
   showToast('Entry removed');
 }
 
-function addDiaper(){
-  db.ref('wesworld/diaperLogs').push({type:ui.diaperType,time:nowStr(),date:todayStr(),by:ui.loggerName,ts:Date.now()});
-  showToast('Diaper logged ✓');
-}
-
-function deleteDiaper(key){
-  if(!key||key==='undefined')return;
-  db.ref('wesworld/diaperLogs/'+key).remove();
-}
-
 function addSleep(){
   if(!ui.sleepStart||!ui.sleepEnd){showToast('Set start and end time');return;}
   const [sh,sm]=ui.sleepStart.split(':').map(Number);
   const [eh,em]=ui.sleepEnd.split(':').map(Number);
-  let hrs=(eh*60+em-sh*60-sm)/60;if(hrs<0)hrs+=24;
+  let hrs=(eh*60+em-sh*60-sm)/60;if(hrs<=0)hrs+=24;
+  // Overnight starts are night sleep, daytime starts are naps — as in the design.
+  const startHour=sh+sm/60;
+  const type=(startHour>=19||startHour<6)?'night':'nap';
   db.ref('wesworld/sleepLogs').push({
-    type:ui.sleepType,start:ui.sleepStart,end:ui.sleepEnd,
-    hours:Math.round(hrs*10)/10,date:todayStr(),by:ui.loggerName,ts:Date.now()
+    type,start:ui.sleepStart,end:ui.sleepEnd,
+    hours:Math.round(hrs*10)/10,date:todayStr(),by:loggerName(),ts:Date.now()
   });
-  ui.sleepStart='';ui.sleepEnd='';
   showToast('Sleep logged ✓');render();
 }
 
@@ -1344,24 +1447,31 @@ function deleteSleep(key){
   db.ref('wesworld/sleepLogs/'+key).remove();
 }
 
-function addWeight(){
-  if(!ui.weightInput){showToast('Enter a weight');return;}
-  const raw=parseFloat(ui.weightInput);
-  const kg=ui.weightUnit==='lbs'?raw*0.4536:raw;
-  const lbs=ui.weightUnit==='lbs'?raw:raw*2.205;
-  const ages=getAges();
+function addMeasurement(){
+  const lb=parseFloat(ui.newWeightLb)||0, oz=parseFloat(ui.newWeightOz)||0;
+  const lenIn=parseFloat(ui.newLength)||0, hcIn=parseFloat(ui.newHeadCirc)||0;
+  if(lb<=0&&oz<=0&&lenIn<=0&&hcIn<=0){showToast('Enter at least one measurement');return;}
+  const iso=ui.newMeasureDate||new Date().toISOString().slice(0,10);
+  const d=new Date(iso+'T00:00:00');
+  if(isNaN(d.getTime())){showToast('Pick a valid date');return;}
+  const chronoDays=Math.floor((d-BIRTH)/864e5);
+  const totalGADays=BIRTH_GA_WEEKS*7+BIRTH_GA_DAYS+chronoDays;
   const entry={
-    date:todayStr(),
-    kg:Math.round(kg*100)/100,
-    lbs:Math.round(lbs*10)/10,
-    gaWeeks:parseFloat((ages.curGAWeeks+ages.curGARemDays/7).toFixed(1)),
-    corrMonths:parseFloat((ages.corrWeeks/4.33).toFixed(2)),
-    by:ui.loggerName,ts:Date.now()
+    date:MONTHS[d.getMonth()]+' '+d.getDate(),
+    gaWeeks:parseFloat((totalGADays/7).toFixed(1)),
+    corrMonths:parseFloat((Math.max(0,totalGADays-280)/30.44).toFixed(2)),
+    by:loggerName(),ts:d.getTime()
   };
-  // Weight logs stored as array in Firebase (ordered)
+  if(lb>0||oz>0){
+    const totalLb=lb+oz/16;
+    entry.kg=Math.round(totalLb*0.45359237*100)/100;
+    entry.lbs=Math.round(totalLb*10)/10;
+  }
+  if(lenIn>0) entry.lenCm=Math.round(lenIn*2.54*10)/10;
+  if(hcIn>0) entry.hcCm=Math.round(hcIn*2.54*10)/10;
   db.ref('wesworld/weightLogs').push(entry);
-  ui.weightInput='';
-  showToast('Weight logged ✓');render();
+  ui.newWeightLb='';ui.newWeightOz='';ui.newLength='';ui.newHeadCirc='';
+  showToast('Measurement logged ✓');render();
 }
 
 function toggleMs(id){
