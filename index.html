@@ -242,6 +242,35 @@ input::placeholder{color:#C7C7DE;}
 .act-desc{font-size:11px;color:var(--muted);line-height:1.5;margin-top:4px;}
 .act-age{font-size:9.5px;color:var(--accent);font-weight:600;margin-top:8px;}
 
+/* IMPORT MODAL */
+.modal-back{position:fixed;inset:0;background:rgba(26,26,46,.45);z-index:1002;
+  display:none;align-items:center;justify-content:center;padding:20px;
+  backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);}
+.modal-back.visible{display:flex;}
+.modal{width:100%;max-width:520px;max-height:85vh;overflow-y:auto;background:var(--surface);
+  border-radius:28px;padding:28px;box-shadow:var(--shadow-lg);}
+.modal-title{font-family:'Fraunces',serif;font-size:22px;font-weight:700;letter-spacing:-.5px;}
+.modal-sub{font-size:12.5px;color:var(--muted);margin-top:6px;margin-bottom:20px;line-height:1.6;}
+.modal-file{width:100%;padding:14px;border-radius:14px;border:1.5px dashed var(--border);
+  background:var(--sunk);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--ink);cursor:pointer;}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:22px;flex-wrap:wrap;}
+.btn-cancel{padding:12px 20px;border-radius:999px;border:1.5px solid var(--border);
+  background:var(--surface);color:var(--ink-mid);font-family:'DM Sans',sans-serif;
+  font-size:14px;font-weight:600;cursor:pointer;}
+.summary{background:var(--sunk);border-radius:16px;padding:16px;margin-top:18px;}
+.summary-row{display:flex;justify-content:space-between;align-items:center;
+  font-size:13px;padding:6px 0;border-bottom:1px solid var(--border-soft);}
+.summary-row:last-child{border-bottom:none;}
+.summary-row b{font-family:'Fraunces',serif;font-size:15px;color:var(--accent);}
+.summary-note{font-size:11.5px;color:var(--muted);line-height:1.6;margin-top:12px;}
+.summary-warn{font-size:11.5px;color:#8A6A20;background:var(--amber-soft);
+  border-radius:12px;padding:10px 12px;line-height:1.6;margin-top:12px;}
+.opt-row{display:flex;align-items:flex-start;gap:10px;margin-top:14px;font-size:12.5px;
+  color:var(--ink);line-height:1.5;cursor:pointer;}
+.opt-row input{margin-top:2px;flex-shrink:0;}
+.nav-import{font-size:12px;color:var(--accent);cursor:pointer;flex-shrink:0;
+  white-space:nowrap;font-weight:600;}
+
 /* TOAST */
 .toast{position:fixed;bottom:calc(32px + env(safe-area-inset-bottom));left:50%;
   transform:translate(-50%,10px);background:var(--ink);color:var(--bg);
@@ -297,6 +326,20 @@ input::placeholder{color:#C7C7DE;}
   </div>
 </div>
 
+<div class="modal-back" id="importModal">
+  <div class="modal">
+    <div class="modal-title">Import from Huckleberry</div>
+    <div class="modal-sub">Export your data from Huckleberry (child icon → “Export tracking data as CSV”),
+      then choose the file here. Nothing is written until you review the summary and confirm.</div>
+    <input class="modal-file" type="file" id="importFile" accept=".csv,text/csv" onchange="onImportFile(this)"/>
+    <div id="importSummary"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeImport()">Cancel</button>
+      <button class="btn-log" id="importGo" onclick="runImport()" style="display:none">Import</button>
+    </div>
+  </div>
+</div>
+
 <div class="sync-bar" id="syncBar"></div>
 <div class="offline-badge" id="offlineBadge">● Offline</div>
 <div class="toast" id="toast"></div>
@@ -307,6 +350,7 @@ input::placeholder{color:#C7C7DE;}
       <div class="nav-logo">Wes <span>World</span></div>
       <div class="nav-sync" id="navSync"></div>
       <div class="nav-tabs" id="navTabs"></div>
+      <div class="nav-import" onclick="openImport()">Import</div>
       <div class="nav-signout" onclick="doSignOut()">Sign out</div>
     </div>
   </nav>
@@ -850,7 +894,13 @@ function buildGrowthChart(logs,mode,valueKey,tables,fmt,axisFmt){
   const minX=mode==='fenton'?30:0,maxX=mode==='fenton'?44:12;
   const src=mode==='fenton'?tables.fenton:tables.who;
   const srcKeys=Object.keys(src).map(Number).sort((a,b)=>a-b).filter(k=>k>=minX&&k<=maxX);
-  const pts=logs.filter(w=>w[valueKey]!=null&&!isNaN(w[valueKey]));
+  // Fenton stops at 44w, so later measurements have no curve to sit against —
+  // drop out-of-domain points rather than drawing them outside the plot area.
+  const pts=logs.filter(w=>{
+    if(w[valueKey]==null||isNaN(w[valueKey]))return false;
+    const x=mode==='fenton'?w.gaWeeks:w.corrMonths;
+    return x!=null&&!isNaN(x)&&x>=minX&&x<=maxX;
+  });
   const curveMax=Math.max(...srcKeys.map(k=>src[k].p97));
   const maxY=Math.max(...pts.map(w=>w[valueKey]),curveMax)*1.08,minY=0;
   const xS=v=>P.l+((v-minX)/(maxX-minX))*iW;
@@ -1135,7 +1185,10 @@ function render(){
   if(ui.tab==='growth'){
     const metric=GROWTH_METRICS[ui.growthMetric]||GROWTH_METRICS.weight;
     const chartMode=ui.growthMode==='gestational'?'fenton':'who';
-    const logs=shared.weightLogs.slice();
+    // Sort chronologically — imported rows interleave with existing ones, and the
+    // curve polyline follows array order, so unsorted data draws a zigzag.
+    const logs=shared.weightLogs.slice().sort((a,b)=>
+      ((a.ts||0)-(b.ts||0))||((a.gaWeeks||0)-(b.gaWeeks||0)));
     const gc=buildGrowthChart(logs,chartMode,metric.key,metric.tables,metric.fmt,metric.axisFmt);
     const src=chartMode==='fenton'?metric.tables.fenton:metric.tables.who;
     const srcKeys=Object.keys(src).map(Number).sort((a,b)=>a-b);
@@ -1400,6 +1453,202 @@ function render(){
 // ACTIONS
 // ─────────────────────────────────────────────────────────────────────────────
 function setField(k,v){ui[k]=v;}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HUCKLEBERRY CSV IMPORT
+// ─────────────────────────────────────────────────────────────────────────────
+let importPayload=null;
+
+function parseCSVText(text){
+  const rows=[];let row=[],field='',inQ=false;
+  text=String(text).replace(/^﻿/,'');
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(inQ){
+      if(c==='"'){ if(text[i+1]==='"'){field+='"';i++;} else inQ=false; }
+      else field+=c;
+    } else if(c==='"'){inQ=true;}
+    else if(c===','){row.push(field);field='';}
+    else if(c==='\n'){row.push(field);field='';rows.push(row);row=[];}
+    else if(c!=='\r'){field+=c;}
+  }
+  if(field.length||row.length){row.push(field);rows.push(row);}
+  return rows.filter(r=>r.some(x=>x!==''));
+}
+
+const hbDate=s=>{
+  const m=/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/.exec((s||'').trim());
+  return m?new Date(+m[1],+m[2]-1,+m[3],+m[4],+m[5],0,0):null;
+};
+const hbDurMin=s=>{const m=/^(\d{1,3}):(\d{2})$/.exec((s||'').trim());return m?(+m[1]*60+ +m[2]):null;};
+// Bottle amounts appear as "4.5oz" recently and "60ml" in the NICU era.
+const hbAmtOz=s=>{
+  const t=(s||'').trim().toLowerCase();
+  let m=/^([\d.]+)\s*oz/.exec(t); if(m)return +m[1];
+  m=/^([\d.]+)\s*ml/.exec(t); if(m)return +m[1]/29.5735;
+  return null;
+};
+// "13.28lbs.oz" is decimal pounds — the ".oz" is part of the unit label, not a value.
+const hbKg=s=>{const m=/^([\d.]+)\s*lbs?/i.exec((s||'').trim());return m?+m[1]*0.45359237:null;};
+// Length / head circumference arrive as cm, decimal feet, or inches depending on the row.
+const hbCm=s=>{
+  const t=(s||'').trim().toLowerCase();
+  let m=/^([\d.]+)\s*cm/.exec(t); if(m)return +m[1];
+  m=/^([\d.]+)\s*ft/.exec(t); if(m)return +m[1]*30.48;
+  m=/^([\d.]+)\s*in/.exec(t); if(m)return +m[1]*2.54;
+  return null;
+};
+const hbHHMM=d=>String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+function hbAgesAt(d){
+  const chronoDays=Math.floor((d-BIRTH)/864e5);
+  const totalGADays=BIRTH_GA_WEEKS*7+BIRTH_GA_DAYS+chronoDays;
+  return {gaWeeks:parseFloat((totalGADays/7).toFixed(1)),
+    corrMonths:parseFloat((Math.max(0,totalGADays-280)/30.44).toFixed(2))};
+}
+
+function hbParse(text){
+  const rows=parseCSVText(text);
+  if(!rows.length)throw new Error('That file looks empty.');
+  const head=rows[0].map(h=>h.trim().toLowerCase());
+  const iType=head.indexOf('type'),iStart=head.indexOf('start'),iEnd=head.indexOf('end'),
+        iDur=head.indexOf('duration'),iSC=head.indexOf('start condition'),
+        iSL=head.indexOf('start location'),iEC=head.indexOf('end condition');
+  if(iType<0||iStart<0)throw new Error("This doesn't look like a Huckleberry export — no Type/Start columns found.");
+
+  const feeds=[],sleeps=[],growth=[];
+  const warn={noAmt:0,badRow:0,diaper:0,other:0};
+  let minTs=Infinity,maxTs=-Infinity;
+  const used={};
+  // Stable ids make re-importing the same export idempotent. Two feeds can share a
+  // timestamp (nursed and topped up), so collisions get a numeric suffix.
+  const keyFor=(ts,kind)=>{
+    let k='imp_'+ts+'_'+kind,n=1;
+    while(used[k]){n++;k='imp_'+ts+'_'+kind+'_'+n;}
+    used[k]=1;return k;
+  };
+
+  for(let r=1;r<rows.length;r++){
+    const row=rows[r],type=(row[iType]||'').trim(),sd=hbDate(row[iStart]);
+    if(!sd){warn.badRow++;continue;}
+    const ts=sd.getTime();
+    if(ts<minTs)minTs=ts; if(ts>maxTs)maxTs=ts;
+    const base={time:sd.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),
+      date:MONTHS[sd.getMonth()]+' '+sd.getDate(),by:'Huckleberry',ts,src:'huckleberry'};
+
+    if(type==='Feed'){
+      if((row[iSL]||'').trim().toLowerCase()==='breast'){
+        feeds.push({key:keyFor(ts,'fb'),val:Object.assign({},base,
+          {type:'breast',duration:hbDurMin(row[iDur])||0})});
+      } else {
+        const oz=hbAmtOz(row[iEC]);
+        if(oz==null){warn.noAmt++;continue;}
+        feeds.push({key:keyFor(ts,'fo'),val:Object.assign({},base,
+          {type:'bottle',amt:Math.round(oz*10)/10})});
+      }
+    } else if(type==='Sleep'){
+      const ed=hbDate(row[iEnd]);
+      let mins=hbDurMin(row[iDur]);
+      if(mins==null&&ed)mins=Math.round((ed-sd)/60000);
+      if(!mins||mins<=0){warn.badRow++;continue;}
+      const h=sd.getHours()+sd.getMinutes()/60;
+      sleeps.push({key:keyFor(ts,'s'),val:Object.assign({},base,{
+        type:(h>=19||h<6)?'night':'nap',
+        start:hbHHMM(sd),end:hbHHMM(ed||new Date(ts+mins*60000)),
+        hours:Math.round(mins/60*10)/10})});
+    } else if(type==='Growth'){
+      const kg=hbKg(row[iSC]),L=hbCm(row[iSL]),HC=hbCm(row[iEC]);
+      if(kg==null&&L==null&&HC==null){warn.badRow++;continue;}
+      const a=hbAgesAt(sd);
+      const v={date:base.date,by:'Huckleberry',ts,src:'huckleberry',
+        gaWeeks:a.gaWeeks,corrMonths:a.corrMonths};
+      if(kg!=null){v.kg=Math.round(kg*100)/100;v.lbs=Math.round(kg/0.45359237*10)/10;}
+      if(L!=null)v.lenCm=Math.round(L*10)/10;
+      if(HC!=null)v.hcCm=Math.round(HC*10)/10;
+      growth.push({key:keyFor(ts,'g'),val:v});
+    } else if(type==='Diaper'){warn.diaper++;}
+    else{warn.other++;}
+  }
+  return {feeds,sleeps,growth,warn,minTs,maxTs};
+}
+
+function openImport(){document.getElementById('importModal').classList.add('visible');}
+function closeImport(){
+  document.getElementById('importModal').classList.remove('visible');
+  document.getElementById('importSummary').innerHTML='';
+  document.getElementById('importGo').style.display='none';
+  document.getElementById('importFile').value='';
+  importPayload=null;
+}
+function onImportFile(input){
+  const f=input.files&&input.files[0];
+  if(!f)return;
+  const box=document.getElementById('importSummary');
+  const rd=new FileReader();
+  rd.onload=()=>{
+    try{ importPayload=hbParse(String(rd.result)); renderImportSummary(importPayload); }
+    catch(e){
+      importPayload=null;
+      document.getElementById('importGo').style.display='none';
+      box.innerHTML=`<div class="summary-warn">${esc(e.message)}</div>`;
+    }
+  };
+  rd.onerror=()=>{box.innerHTML='<div class="summary-warn">Could not read that file.</div>';};
+  rd.readAsText(f);
+}
+function renderImportSummary(p){
+  const total=p.feeds.length+p.sleeps.length+p.growth.length;
+  const seedCount=shared.feedLogs.filter(f=>f.by==='Seed').length;
+  const fmtD=ts=>{const d=new Date(ts);return MONTHS[d.getMonth()]+' '+d.getDate()+', '+d.getFullYear();};
+  const warns=[];
+  if(p.warn.noAmt)warns.push(p.warn.noAmt+' bottle feed'+(p.warn.noAmt>1?'s':'')+' had no recorded amount — skipped.');
+  if(p.warn.diaper)warns.push(p.warn.diaper+' diaper entr'+(p.warn.diaper>1?'ies':'y')+' skipped — this app no longer tracks diapers.');
+  if(p.warn.badRow)warns.push(p.warn.badRow+' row'+(p.warn.badRow>1?'s':'')+" couldn't be read — skipped.");
+  if(p.warn.other)warns.push(p.warn.other+' row'+(p.warn.other>1?'s':'')+' of other types skipped.');
+  document.getElementById('importSummary').innerHTML=`
+    <div class="summary">
+      <div class="summary-row"><span>Feeds</span><b>${p.feeds.length}</b></div>
+      <div class="summary-row"><span>Sleep sessions</span><b>${p.sleeps.length}</b></div>
+      <div class="summary-row"><span>Growth measurements</span><b>${p.growth.length}</b></div>
+      <div class="summary-row"><span>Date range</span><b style="font-size:13px">${total?esc(fmtD(p.minTs)+' – '+fmtD(p.maxTs)):'—'}</b></div>
+    </div>
+    ${warns.length?`<div class="summary-warn">${warns.map(esc).join('<br>')}</div>`:''}
+    ${seedCount?`<label class="opt-row"><input type="checkbox" id="importClearSeed" checked/>
+      <span>Also remove ${seedCount} demo feeds the app generated on its first run. They're fake and will skew your charts.</span></label>`:''}
+    <div class="summary-note">Re-importing the same export is safe — every record gets a stable id,
+      so rows are updated in place rather than duplicated.</div>`;
+  document.getElementById('importGo').style.display=total?'':'none';
+}
+function runImport(){
+  if(!importPayload)return;
+  const btn=document.getElementById('importGo');
+  btn.disabled=true;btn.textContent='Importing…';
+  const clear=document.getElementById('importClearSeed');
+  const updates={};
+  importPayload.feeds.forEach(x=>updates['feedLogs/'+x.key]=x.val);
+  importPayload.sleeps.forEach(x=>updates['sleepLogs/'+x.key]=x.val);
+  importPayload.growth.forEach(x=>updates['weightLogs/'+x.key]=x.val);
+  if(clear&&clear.checked){
+    shared.feedLogs.forEach(f=>{if(f.by==='Seed'&&f.key)updates['feedLogs/'+f.key]=null;});
+  }
+  const entries=Object.entries(updates);
+  // Chunked so a large export doesn't go out as one oversized payload.
+  const step=i=>{
+    if(i>=entries.length){
+      btn.disabled=false;btn.textContent='Import';
+      showToast('Imported '+(importPayload.feeds.length+importPayload.sleeps.length+importPayload.growth.length)+' records ✓');
+      closeImport();return;
+    }
+    const chunk={};entries.slice(i,i+400).forEach(([k,v])=>chunk[k]=v);
+    db.ref('wesworld').update(chunk)
+      .then(()=>step(i+400))
+      .catch(e=>{
+        btn.disabled=false;btn.textContent='Import';
+        document.getElementById('importSummary').innerHTML=
+          `<div class="summary-warn">Import failed: ${esc(e.message)}</div>`;
+      });
+  };
+  step(0);
+}
 function setTab(t){ui.tab=t;render();window.scrollTo(0,0);}
 function setUI(k,v){ui[k]=v;render();}
 function toggleUI(k){ui[k]=!ui[k];render();}
