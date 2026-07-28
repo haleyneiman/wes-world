@@ -550,6 +550,22 @@ function getAges() {
 }
 
 function nowStr() { return new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); }
+// Local-safe YYYY-MM-DD. toISOString() is UTC, so an evening in a US timezone
+// would default these fields to tomorrow.
+function todayISO(){
+  const d=new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function localDate(iso){
+  const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(iso||'');
+  return m?new Date(+m[1],+m[2]-1,+m[3]):new Date();
+}
+function dateTimeFrom(iso,hhmm){
+  const d=localDate(iso);
+  const t=/^(\d{1,2}):(\d{2})/.exec(hhmm||'');
+  d.setHours(t?+t[1]:0,t?+t[2]:0,0,0);
+  return d;
+}
 function todayStr() { const d=new Date(); return MONTHS[d.getMonth()]+' '+d.getDate(); }
 const ozToMl = oz => oz*29.5735;
 const mlToOz = ml => ml/29.5735;
@@ -626,11 +642,12 @@ function getFentonPct(kg,gaWeeks){
 let ui = {
   tab: 'feed',
   feedType: 'bottle', feedAmt: '', feedTime: new Date().toTimeString().slice(0,5),
-  sleepStart: '20:30', sleepEnd: '07:00',
+  feedDate: todayISO(),
+  sleepStart: '20:30', sleepEnd: '07:00', sleepDate: todayISO(),
   growthMode: 'corrected', growthMetric: 'weight',
   msAgeMode: 'corrected', msFilter: 'all',
   newWeightLb: '', newWeightOz: '', newLength: '', newHeadCirc: '',
-  newMeasureDate: new Date().toISOString().slice(0,10),
+  newMeasureDate: todayISO(),
   selectedSleepBlock: null, selectedFeedMarker: null, selectedGrowthPoint: null,
   showFeedOverlay: false, showSleepOverlay: false,
   growthZoomLo: null, growthZoomHi: null,
@@ -931,8 +948,9 @@ function nowLabel(){
 }
 // Hour labels plus the "now" marker, dropping whichever label it would sit on top of.
 function hourGutterHtml(nowPct){
+  // ~3.5% of a 380px track is ~13px — enough to clear an 8.5px label.
   return HOUR_LABELS
-    .filter(h=>Math.abs(h.topPct-nowPct)>2.2)
+    .filter(h=>Math.abs(h.topPct-nowPct)>3.5)
     .map(h=>`<div class="week-hour" style="top:${h.topPct}%">${h.label}</div>`).join('')
     +`<div class="now-tag" style="top:${nowPct}%" title="${esc(nowLabel())}">now</div>`;
 }
@@ -1260,6 +1278,10 @@ function render(){
             oninput="setField('feedAmt',this.value)" placeholder="${isBottle?'3.2':'18'}"/>
         </div>
         <div class="field">
+          <label>Date</label>
+          <input type="date" value="${esc(ui.feedDate)}" oninput="setField('feedDate',this.value)"/>
+        </div>
+        <div class="field">
           <label>Time</label>
           <input type="time" value="${esc(ui.feedTime)}" oninput="setField('feedTime',this.value)"/>
         </div>
@@ -1517,6 +1539,7 @@ function render(){
     <div class="section-head">
       <div class="section-title">Sleep</div>
       <div class="fields">
+        <div class="field"><label>Date</label><input type="date" value="${esc(ui.sleepDate)}" oninput="setField('sleepDate',this.value)"/></div>
         <div class="field"><label>Start</label><input type="time" value="${esc(ui.sleepStart)}" oninput="setField('sleepStart',this.value)"/></div>
         <div class="field"><label>End</label><input type="time" value="${esc(ui.sleepEnd)}" oninput="setField('sleepEnd',this.value)"/></div>
         <button class="btn-log" onclick="addSleep()">Log Sleep</button>
@@ -1943,8 +1966,8 @@ function addFeed(){
   const isBottle=ui.feedType!=='breast';
   const val=parseFloat(ui.feedAmt)||0;
   if(val<=0){showToast(isBottle?'Enter an amount':'Enter a duration');return;}
-  const [hh,mm]=(ui.feedTime||'00:00').split(':').map(Number);
-  const when=new Date();when.setHours(hh||0,mm||0,0,0);
+  const when=dateTimeFrom(ui.feedDate,ui.feedTime);
+  if(isNaN(when.getTime())){showToast('Pick a valid date');return;}
   const log={
     type:isBottle?'bottle':'breast',
     time:when.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),
@@ -1971,9 +1994,15 @@ function addSleep(){
   // Overnight starts are night sleep, daytime starts are naps — as in the design.
   const startHour=sh+sm/60;
   const type=(startHour>=19||startHour<6)?'night':'nap';
+  // The record is filed under the date the sleep started, so an overnight
+  // stretch stays on one night rather than splitting across two.
+  const when=dateTimeFrom(ui.sleepDate,ui.sleepStart);
+  if(isNaN(when.getTime())){showToast('Pick a valid date');return;}
   db.ref('wesworld/sleepLogs').push({
     type,start:ui.sleepStart,end:ui.sleepEnd,
-    hours:Math.round(hrs*10)/10,date:todayStr(),by:loggerName(),ts:Date.now()
+    hours:Math.round(hrs*10)/10,
+    date:MONTHS[when.getMonth()]+' '+when.getDate(),
+    by:loggerName(),ts:when.getTime()
   });
   showToast('Sleep logged ✓');render();
 }
@@ -1987,7 +2016,7 @@ function addMeasurement(){
   const lb=parseFloat(ui.newWeightLb)||0, oz=parseFloat(ui.newWeightOz)||0;
   const lenIn=parseFloat(ui.newLength)||0, hcIn=parseFloat(ui.newHeadCirc)||0;
   if(lb<=0&&oz<=0&&lenIn<=0&&hcIn<=0){showToast('Enter at least one measurement');return;}
-  const iso=ui.newMeasureDate||new Date().toISOString().slice(0,10);
+  const iso=ui.newMeasureDate||todayISO();
   const d=new Date(iso+'T00:00:00');
   if(isNaN(d.getTime())){showToast('Pick a valid date');return;}
   const chronoDays=Math.floor((d-BIRTH)/864e5);
