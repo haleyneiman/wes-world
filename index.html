@@ -172,10 +172,16 @@ input::placeholder{color:#C7C7DE;}
 
 /* WEEK GRID */
 .week-grid{display:grid;grid-template-columns:30px repeat(7,1fr);gap:5px;}
-.week-hours{position:relative;height:220px;}
-.week-hour{position:absolute;left:0;font-size:8px;color:var(--muted);transform:translateY(-50%);}
+.week-hours{position:relative;height:380px;}
+.week-hour{position:absolute;left:0;font-size:8.5px;color:var(--muted);transform:translateY(-50%);}
 .week-day-label{font-size:9.5px;color:var(--muted);text-align:center;margin-bottom:4px;}
-.week-track{position:relative;height:220px;background:var(--sunk);border-radius:10px;border:1px solid var(--border-soft);}
+.week-track{position:relative;height:380px;background:var(--sunk);border-radius:10px;border:1px solid var(--border-soft);}
+.now-line{position:absolute;left:0;right:0;height:0;border-top:1.5px dashed var(--red);
+  z-index:3;pointer-events:none;}
+/* sits on the card, so a solid background masks any hour label it lands on */
+.now-tag{position:absolute;left:0;font-size:8px;font-weight:700;color:var(--red);
+  transform:translateY(-50%);letter-spacing:.3px;background:var(--surface);
+  padding:1px 2px 1px 0;z-index:4;}
 .feed-marker{position:absolute;left:8%;width:84%;height:6px;border-radius:3px;transform:translateY(-50%);}
 .sleep-overlay{position:absolute;left:2%;width:96%;border-radius:4px;opacity:.45;}
 .sleep-block{position:absolute;left:8%;width:84%;border-radius:4px;cursor:pointer;}
@@ -907,8 +913,29 @@ function buildSleepWeek(){
     };
   });
 }
-const HOUR_LABELS=[{label:'12a',topPct:0},{label:'4a',topPct:16.7},{label:'8a',topPct:33.3},
-  {label:'12p',topPct:50},{label:'4p',topPct:66.7},{label:'8p',topPct:83.3},{label:'12a',topPct:100}];
+// Every 2 hours across the 24h axis.
+const HOUR_LABELS=Array.from({length:13},(_,i)=>{
+  const h=i*2;
+  const ampm=(h<12||h===24)?'a':'p';
+  let h12=h%12; if(h12===0)h12=12;
+  return {label:h12+ampm,topPct:h/24*100};
+});
+// Current time as a position on that axis.
+function nowTopPct(){
+  const d=new Date();
+  return (d.getHours()+d.getMinutes()/60)/24*100;
+}
+function nowLabel(){
+  const d=new Date();
+  return d.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
+}
+// Hour labels plus the "now" marker, dropping whichever label it would sit on top of.
+function hourGutterHtml(nowPct){
+  return HOUR_LABELS
+    .filter(h=>Math.abs(h.topPct-nowPct)>2.2)
+    .map(h=>`<div class="week-hour" style="top:${h.topPct}%">${h.label}</div>`).join('')
+    +`<div class="now-tag" style="top:${nowPct}%" title="${esc(nowLabel())}">now</div>`;
+}
 // Night axis runs 8pm -> 7am the next morning.
 const NIGHT_START=20,NIGHT_END=31;
 const NIGHT_HOUR_LABELS=[{label:'8p',topPct:0},{label:'11p',topPct:27.3},{label:'2a',topPct:54.5},
@@ -1215,6 +1242,7 @@ function render(){
   if(ui.tab==='feed'){
     const week=buildFeedWeek();
     weekCache.feed=week;
+    const nowPct=nowTopPct();
     const isBottle=ui.feedType!=='breast';
     const totalFeeds=week.reduce((a,d)=>a+d.markers.length,0);
     const perDay=(totalFeeds/7).toFixed(1);
@@ -1257,7 +1285,7 @@ function render(){
         <span>${esc(ui.selectedFeedMarker.day)} ${esc(ui.selectedFeedMarker.dateLabel)} · ${esc(ui.selectedFeedMarker.typeLabel)} · ${esc(ui.selectedFeedMarker.amt)} · ${esc(ui.selectedFeedMarker.timeLabel)}</span>
       </div>`:''}
       <div class="week-grid">
-        <div class="week-hours">${HOUR_LABELS.map(h=>`<div class="week-hour" style="top:${h.topPct}%">${h.label}</div>`).join('')}</div>
+        <div class="week-hours">${hourGutterHtml(nowPct)}</div>
         ${week.map((d,di)=>`
           <div>
             <div class="week-day-label">${d.day}<br><span class="week-date">${esc(d.dateKey)}</span></div>
@@ -1268,6 +1296,7 @@ function render(){
                 const sel=ui.selectedFeedMarker&&ui.selectedFeedMarker.key===m.key;
                 return `<div class="feed-marker" style="top:${m.topPct}%;background:${m.color};cursor:pointer;box-shadow:${sel?'0 0 0 2px #1A1A2E':'none'}" onclick="selectFeedMarker(${di},${mi})"></div>`;
               }).join('')}
+              <div class="now-line" style="top:${nowPct}%"></div>
             </div>
           </div>`).join('')}
       </div>
@@ -1473,6 +1502,7 @@ function render(){
   if(ui.tab==='sleep'){
     const week=buildSleepWeek();
     weekCache.sleep=week;
+    const nowPct=nowTopPct();
     const td=todayStr();
     const todays=shared.sleepLogs.filter(s=>s.date===td);
     const napToday=todays.filter(s=>s.type==='nap').length;
@@ -1507,7 +1537,7 @@ function render(){
       <div class="card-sub">Tap a block to see its start and stop time</div>
       ${sel?`<div class="sel-block"><span>${esc(sel.day)}${sel.dateLabel?' '+esc(sel.dateLabel):''} · ${esc(sel.typeLabel)} · ${esc(sel.startLabel)} – ${esc(sel.endLabel)}</span></div>`:''}
       <div class="week-grid">
-        <div class="week-hours">${HOUR_LABELS.map(h=>`<div class="week-hour" style="top:${h.topPct}%">${h.label}</div>`).join('')}</div>
+        <div class="week-hours">${hourGutterHtml(nowPct)}</div>
         ${week.map((d,di)=>`
           <div>
             <div class="week-day-label">${d.day}<br><span class="week-date">${esc(d.dateKey)}</span></div>
@@ -1516,6 +1546,7 @@ function render(){
                 `<div class="sleep-block" style="top:${b.topPct}%;height:${b.heightPct}%;background:${b.color}" onclick="selectSleepBlock(${di},${bi})"></div>`).join('')}
               ${ui.showFeedOverlay?d.feedMarkers.map(m=>
                 `<div class="feed-overlay" style="top:${m.topPct}%;background:${m.color}"></div>`).join(''):''}
+              <div class="now-line" style="top:${nowPct}%"></div>
             </div>
           </div>`).join('')}
       </div>
