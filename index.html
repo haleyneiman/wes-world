@@ -1175,7 +1175,7 @@ function render(){
               <div class="log-label">${f.type==='breast'?'Breast':'Bottle'} · ${f.type==='breast'?(f.duration||0)+' min':(f.amt||0)+' oz'}</div>
               <div class="log-meta">${esc(f.time||'')} · ${esc(f.date||'')}${f.by?' · logged by '+esc(f.by):''}</div>
             </div>
-            <div class="log-del" onclick="deleteFeed('${f.key}')">×</div>
+            <div class="log-del" onclick="deleteFeed('${f._key}')">×</div>
           </div>`).join('')||'<div class="log-meta">No feeds logged yet.</div>'}
       </div>
     </div>`;
@@ -1379,7 +1379,7 @@ function render(){
               <div class="log-label">${s.type==='nap'?'Nap':'Night sleep'} · ${esc(hm(+s.hours||0))}</div>
               <div class="log-meta">${esc(s.start||'')}–${esc(s.end||'')} · ${esc(s.date||'')}${s.by?' · logged by '+esc(s.by):''}</div>
             </div>
-            <div class="log-del" onclick="deleteSleep('${s.key}')">×</div>
+            <div class="log-del" onclick="deleteSleep('${s._key}')">×</div>
           </div>`).join('')||'<div class="log-meta">No sleep logged yet.</div>'}
       </div>
     </div>`;
@@ -1571,7 +1571,32 @@ function hbParse(text){
   return {feeds,sleeps,growth,warn,minTs,maxTs};
 }
 
-function openImport(){document.getElementById('importModal').classList.add('visible');}
+function seedFeeds(){return shared.feedLogs.filter(f=>f.by==='Seed'&&f._key);}
+function openImport(){
+  document.getElementById('importModal').classList.add('visible');
+  // Offer the demo-data cleanup on its own, so it doesn't require a re-import.
+  const seed=seedFeeds();
+  if(!importPayload&&seed.length){
+    document.getElementById('importSummary').innerHTML=
+      `<div class="summary-warn">Your database still holds ${seed.length} demo feeds the app
+        generated on its first run. They're fake and will skew your charts.
+        <div style="margin-top:10px"><button class="btn-cancel"
+          style="padding:8px 14px;font-size:12.5px" onclick="removeSeedFeeds()">Remove them now</button></div></div>`;
+  }
+}
+function removeSeedFeeds(){
+  const seed=seedFeeds();
+  if(!seed.length)return;
+  const updates={};
+  seed.forEach(f=>updates['feedLogs/'+f._key]=null);
+  db.ref('wesworld').update(updates)
+    .then(()=>{
+      showToast('Removed '+seed.length+' demo feeds ✓');
+      document.getElementById('importSummary').innerHTML='';
+    })
+    .catch(e=>{document.getElementById('importSummary').innerHTML=
+      `<div class="summary-warn">Couldn't remove them: ${esc(e.message)}</div>`;});
+}
 function closeImport(){
   document.getElementById('importModal').classList.remove('visible');
   document.getElementById('importSummary').innerHTML='';
@@ -1597,7 +1622,7 @@ function onImportFile(input){
 }
 function renderImportSummary(p){
   const total=p.feeds.length+p.sleeps.length+p.growth.length;
-  const seedCount=shared.feedLogs.filter(f=>f.by==='Seed').length;
+  const seedCount=seedFeeds().length;
   const fmtD=ts=>{const d=new Date(ts);return MONTHS[d.getMonth()]+' '+d.getDate()+', '+d.getFullYear();};
   const warns=[];
   if(p.warn.noAmt)warns.push(p.warn.noAmt+' bottle feed'+(p.warn.noAmt>1?'s':'')+' had no recorded amount — skipped.');
@@ -1628,7 +1653,8 @@ function runImport(){
   importPayload.sleeps.forEach(x=>updates['sleepLogs/'+x.key]=x.val);
   importPayload.growth.forEach(x=>updates['weightLogs/'+x.key]=x.val);
   if(clear&&clear.checked){
-    shared.feedLogs.forEach(f=>{if(f.by==='Seed'&&f.key)updates['feedLogs/'+f.key]=null;});
+    // objToArr exposes the Firebase key as _key, not key.
+    shared.feedLogs.forEach(f=>{if(f.by==='Seed'&&f._key)updates['feedLogs/'+f._key]=null;});
   }
   const entries=Object.entries(updates);
   // Chunked so a large export doesn't go out as one oversized payload.
