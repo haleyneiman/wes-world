@@ -186,7 +186,28 @@ input::placeholder{color:#C7C7DE;}
 .legend i.sq{border-radius:2px;}
 .legend b{display:inline-block;width:10px;height:6px;border-radius:3px;margin-right:4px;}
 .sel-block{background:var(--sunk);border-radius:14px;padding:10px 14px;
-  margin-bottom:14px;font-size:12.5px;color:var(--ink);}
+  margin-bottom:14px;font-size:12.5px;color:var(--ink);
+  display:flex;align-items:center;gap:8px;}
+.sel-dot{display:inline-block;width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.card-hint{font-size:11px;color:var(--muted);margin-bottom:12px;}
+.week-date{font-size:8px;opacity:.75;}
+.wake-dot{position:absolute;left:50%;width:8px;height:8px;border-radius:50%;
+  background:var(--red);transform:translate(-50%,-50%);}
+.wake-count{font-size:9.5px;color:var(--muted);text-align:center;margin-top:4px;}
+.day-groups{display:flex;flex-direction:column;gap:14px;}
+.day-head{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;
+  letter-spacing:.5px;margin-bottom:8px;}
+.scroll-log{max-height:340px;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.pager{display:flex;align-items:center;justify-content:space-between;margin-top:16px;gap:8px;}
+.pager-label{font-size:11px;color:var(--muted);}
+.btn-page{padding:8px 16px;border-radius:999px;font-size:12px;font-weight:600;cursor:pointer;
+  border:1px solid var(--border);background:var(--surface);color:var(--ink);
+  font-family:'DM Sans',sans-serif;-webkit-appearance:none;white-space:nowrap;}
+.btn-page:disabled{opacity:.4;cursor:default;}
+.btn-zoom{width:28px;height:28px;border-radius:999px;font-size:14px;font-weight:700;cursor:pointer;
+  border:1px solid var(--border);background:var(--surface);color:var(--ink);
+  font-family:'DM Sans',sans-serif;-webkit-appearance:none;line-height:1;padding:0;}
+.btn-zoom:disabled{opacity:.4;cursor:default;}
 
 /* TREND BARS */
 .trend{display:flex;align-items:flex-end;gap:10px;height:120px;}
@@ -554,24 +575,24 @@ const FENTON_BOYS = {
   27:{p3:0.87,p10:1.00,p50:1.19,p90:1.38,p97:1.52},
   28:{p3:1.01,p10:1.17,p50:1.38,p90:1.61,p97:1.77},
   29:{p3:1.18,p10:1.36,p50:1.60,p90:1.87,p97:2.06},
-  30:{p3:1.37,p10:1.57,p50:1.85,p90:2.16,p97:2.37},
-  31:{p3:1.58,p10:1.82,p50:2.13,p90:2.48,p97:2.73},
-  32:{p3:1.81,p10:2.09,p50:2.44,p90:2.83,p97:3.12},
-  33:{p3:2.07,p10:2.38,p50:2.78,p90:3.22,p97:3.54},
-  34:{p3:2.34,p10:2.69,p50:3.14,p90:3.63,p97:3.99},
-  35:{p3:2.62,p10:3.02,p50:3.51,p90:4.05,p97:4.45},
-  36:{p3:2.91,p10:3.35,p50:3.88,p90:4.47,p97:4.91},
-  37:{p3:3.08,p10:3.54,p50:4.07,p90:4.67,p97:5.12},
-  38:{p3:3.22,p10:3.69,p50:4.24,p90:4.84,p97:5.30},
-  39:{p3:3.32,p10:3.81,p50:4.37,p90:4.99,p97:5.47},
-  40:{p3:3.39,p10:3.89,p50:4.47,p90:5.10,p97:5.60},
-  41:{p3:3.44,p10:3.95,p50:4.54,p90:5.19,p97:5.70},
-  42:{p3:3.47,p10:3.99,p50:4.59,p90:5.24,p97:5.76},
-  43:{p3:3.48,p10:4.01,p50:4.61,p90:5.27,p97:5.79},
-  44:{p3:3.67,p10:4.22,p50:4.86,p90:5.56,p97:6.11},
-  46:{p3:4.02,p10:4.62,p50:5.32,p90:6.09,p97:6.68},
-  48:{p3:4.38,p10:5.04,p50:5.80,p90:6.63,p97:7.27},
-  50:{p3:4.73,p10:5.44,p50:6.27,p90:7.16,p97:7.85},
+  // 30w+ corrected to match Fenton 2013 — the previous values ran ~30% high
+  // (50th at 30w was 1.85 kg against an actual ~1.40), which understated
+  // every preterm percentile in the app.
+  30:{p3:1.04,p10:1.19,p50:1.40,p90:1.64,p97:1.79},
+  31:{p3:1.19,p10:1.36,p50:1.60,p90:1.86,p97:2.05},
+  32:{p3:1.34,p10:1.54,p50:1.80,p90:2.09,p97:2.30},
+  33:{p3:1.51,p10:1.73,p50:2.03,p90:2.34,p97:2.58},
+  34:{p3:1.68,p10:1.93,p50:2.25,p90:2.60,p97:2.86},
+  35:{p3:1.85,p10:2.13,p50:2.48,p90:2.86,p97:3.14},
+  36:{p3:2.03,p10:2.33,p50:2.70,p90:3.11,p97:3.42},
+  37:{p3:2.23,p10:2.56,p50:2.95,p90:3.38,p97:3.71},
+  38:{p3:2.43,p10:2.78,p50:3.20,p90:3.65,p97:4.00},
+  39:{p3:2.58,p10:2.96,p50:3.40,p90:3.88,p97:4.25},
+  40:{p3:2.73,p10:3.13,p50:3.60,p90:4.11,p97:4.51},
+  41:{p3:2.84,p10:3.26,p50:3.75,p90:4.28,p97:4.70},
+  42:{p3:2.96,p10:3.39,p50:3.90,p90:4.45,p97:4.89},
+  43:{p3:3.07,p10:3.52,p50:4.05,p90:4.62,p97:5.07},
+  44:{p3:3.18,p10:3.66,p50:4.20,p90:4.79,p97:5.26},
 };
 
 function getPct(kg,months){
@@ -604,7 +625,10 @@ let ui = {
   msAgeMode: 'corrected', msFilter: 'all',
   newWeightLb: '', newWeightOz: '', newLength: '', newHeadCirc: '',
   newMeasureDate: new Date().toISOString().slice(0,10),
-  selectedSleepBlock: null, showFeedOverlay: false, showSleepOverlay: false,
+  selectedSleepBlock: null, selectedFeedMarker: null, selectedGrowthPoint: null,
+  showFeedOverlay: false, showSleepOverlay: false,
+  growthZoomLo: null, growthZoomHi: null,
+  feedLogPage: 0,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -767,15 +791,26 @@ const FENTON_BOYS_LEN=tableFromBase(FENTON_LEN_BASE,LEN_RATIOS_FENTON);
 const WHO_BOYS_HC=tableFromBase(WHO_HC_BASE,HC_RATIOS_WHO);
 const FENTON_BOYS_HC=tableFromBase(FENTON_HC_BASE,HC_RATIOS_FENTON);
 
+function ordinal(n){const s=['th','st','nd','rd'],v=n%100;return n+(s[(v-20)%10]||s[v]||s[0]);}
+// Interpolates between the published bands for an exact percentile ("42nd")
+// rather than reporting a range ("25–50th").
 function getPctLabel(val,src,keys,x){
   if(val==null||isNaN(val))return 'N/A';
   let k=keys[0];for(const kk of keys) if(kk<=x) k=kk;
   const p=src[k];if(!p)return 'N/A';
-  const bands=['p3','p10','p25','p50','p75','p90','p97'].filter(b=>p[b]!=null);
-  for(let i=0;i<bands.length;i++){
-    if(val<=p[bands[i]]) return i===0?'<3rd':bands[i-1].slice(1)+'–'+bands[i].slice(1)+'th';
+  const bands=[[3,'p3'],[10,'p10'],[25,'p25'],[50,'p50'],[75,'p75'],[90,'p90'],[97,'p97']]
+    .filter(b=>p[b[1]]!=null);
+  if(!bands.length)return 'N/A';
+  if(val<=p[bands[0][1]])return '<'+ordinal(bands[0][0]);
+  for(let i=1;i<bands.length;i++){
+    const [pctA,keyA]=bands[i-1],[pctB,keyB]=bands[i];
+    if(val<=p[keyB]){
+      const vA=p[keyA],vB=p[keyB];
+      const frac=vB===vA?0:(val-vA)/(vB-vA);
+      return ordinal(Math.round(pctA+frac*(pctB-pctA)));
+    }
   }
-  return '>'+bands[bands.length-1].slice(1)+'th';
+  return '>'+ordinal(bands[bands.length-1][0]);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -844,7 +879,12 @@ function buildFeedWeek(){
       topPct:a/24*100,heightPct:(b-a)/24*100,color:sleepColor(s.type)})));
     return {
       day:d.dow,dateKey:d.key,
-      markers:feeds.map(f=>({topPct:logHour(f)/24*100,color:feedColor(f.type)})),
+      markers:feeds.map(f=>({
+        topPct:logHour(f)/24*100,color:feedColor(f.type),
+        typeLabel:f.type==='breast'?'Breast':'Bottle',
+        amt:f.type==='breast'?((f.duration||0)+' min'):((f.amt||0)+' oz'),
+        timeLabel:hourLabel(logHour(f)),key:f._key
+      })),
       sleepBlocks
     };
   });
@@ -869,6 +909,53 @@ function buildSleepWeek(){
 }
 const HOUR_LABELS=[{label:'12a',topPct:0},{label:'4a',topPct:16.7},{label:'8a',topPct:33.3},
   {label:'12p',topPct:50},{label:'4p',topPct:66.7},{label:'8p',topPct:83.3},{label:'12a',topPct:100}];
+// Night axis runs 8pm -> 7am the next morning.
+const NIGHT_START=20,NIGHT_END=31;
+const NIGHT_HOUR_LABELS=[{label:'8p',topPct:0},{label:'11p',topPct:27.3},{label:'2a',topPct:54.5},
+  {label:'5a',topPct:81.8},{label:'7a',topPct:100}];
+
+// Night sleep sessions for one day, placed on the 8pm->7am axis.
+function nightSessions(dateKey){
+  return shared.sleepLogs
+    .filter(s=>s.date===dateKey&&s.type==='night')
+    .map(s=>{
+      let start=hhmmToHours(s.start);
+      if(start==null)return null;
+      if(start<12)start+=24;               // after-midnight starts belong to this night
+      return {start,end:start+(+s.hours||0),hours:+s.hours||0};
+    })
+    .filter(Boolean)
+    .sort((a,b)=>a.start-b.start);
+}
+// Longest single unbroken overnight stretch, which is what the card claims —
+// not the night's total, which would hide a fragmented night.
+function buildLongestStretch(){
+  return last7Days().map(d=>{
+    const ss=nightSessions(d.key);
+    return {day:d.dow,dateLabel:d.key,hours:ss.length?Math.max(...ss.map(s=>s.hours)):0};
+  });
+}
+// A waking is the gap between two consecutive night sessions, marked at the
+// moment he woke (the end of the earlier session).
+function buildNightWakings(){
+  return last7Days().map(d=>{
+    const ss=nightSessions(d.key);
+    const dots=ss.slice(0,-1)
+      .map(s=>s.end)
+      .filter(t=>t>=NIGHT_START&&t<=NIGHT_END)
+      .map(t=>({topPct:(t-NIGHT_START)/(NIGHT_END-NIGHT_START)*100,timeLabel:hourLabel(t%24)}));
+    return {day:d.dow,dateLabel:d.key,count:dots.length,dots};
+  });
+}
+// Group log rows under date headings, newest first.
+function groupByDate(rows){
+  const map=new Map();
+  rows.forEach(r=>{
+    if(!map.has(r.date))map.set(r.date,[]);
+    map.get(r.date).push(r);
+  });
+  return Array.from(map.entries()).map(([date,items])=>({date,items}));
+}
 
 // A real, data-derived version of the prototype's feed-pattern sentence.
 function feedPatternSentence(week){
@@ -887,30 +974,39 @@ function feedPatternSentence(week){
 // ─────────────────────────────────────────────────────────────────────────────
 // GROWTH CHART — prototype geometry, real measurements
 // ─────────────────────────────────────────────────────────────────────────────
-function buildGrowthChart(logs,mode,valueKey,tables,fmt,axisFmt){
+function buildGrowthChart(logs,mode,valueKey,tables,fmt,axisFmt,viewLo,viewHi){
   axisFmt=axisFmt||fmt;
   const P={l:44,r:36,t:14,b:34},W=580,H=230;
   const iW=W-P.l-P.r,iH=H-P.t-P.b;
-  const minX=mode==='fenton'?30:0,maxX=mode==='fenton'?44:12;
+  const fullMin=mode==='fenton'?30:0,fullMax=mode==='fenton'?44:12;
+  const minX=viewLo!=null?viewLo:fullMin,maxX=viewHi!=null?viewHi:fullMax;
   const src=mode==='fenton'?tables.fenton:tables.who;
-  const srcKeys=Object.keys(src).map(Number).sort((a,b)=>a-b).filter(k=>k>=minX&&k<=maxX);
+  const allKeys=Object.keys(src).map(Number).sort((a,b)=>a-b);
+  const srcKeys=allKeys.filter(k=>k>=minX&&k<=maxX);
   // Fenton stops at 44w, so later measurements have no curve to sit against —
-  // drop out-of-domain points rather than drawing them outside the plot area.
+  // drop out-of-view points rather than drawing them outside the plot area.
   const pts=logs.filter(w=>{
     if(w[valueKey]==null||isNaN(w[valueKey]))return false;
     const x=mode==='fenton'?w.gaWeeks:w.corrMonths;
     return x!=null&&!isNaN(x)&&x>=minX&&x<=maxX;
   });
-  const curveMax=Math.max(...srcKeys.map(k=>src[k].p97));
+  const curveKeys=srcKeys.length?srcKeys:allKeys;
+  const curveMax=Math.max(...curveKeys.map(k=>src[k].p97));
   const maxY=Math.max(...pts.map(w=>w[valueKey]),curveMax)*1.08,minY=0;
   const xS=v=>P.l+((v-minX)/(maxX-minX))*iW;
   const yS=v=>P.t+iH-((v-minY)/(maxY-minY))*iH;
   const gridLines=[];
   for(let i=0;i<=5;i++){const v=minY+(i/5)*(maxY-minY),y=yS(v);
     gridLines.push({y:y.toFixed(1),topPct:(y/H*100).toFixed(1),label:axisFmt(v)});}
-  const xTickVals=mode==='fenton'?[30,32,34,36,38,40,42,44]:[0,2,4,6,8,10,12];
-  const xTicks=xTickVals.filter(v=>v>=minX&&v<=maxX).map(v=>({
-    x:xS(v).toFixed(1),leftPct:(xS(v)/W*100).toFixed(1),label:mode==='fenton'?v+'w':v+'m'}));
+  // Tick spacing follows the zoom span so a narrow view doesn't collapse to one tick.
+  const tickStep=mode==='fenton'
+    ?Math.max(1,Math.round((maxX-minX)/5))
+    :Math.max(0.5,Math.round((maxX-minX)/5*2)/2);
+  const xTickVals=[];
+  for(let v=Math.ceil(minX/tickStep)*tickStep;v<=maxX+1e-6;v+=tickStep)xTickVals.push(+v.toFixed(2));
+  const xTicks=xTickVals.map(v=>({
+    x:xS(v).toFixed(1),leftPct:(xS(v)/W*100).toFixed(1),
+    label:mode==='fenton'?Math.round(v)+'w':(Math.round(v*10)/10)+'m'}));
   const curveDefs=mode==='fenton'
     ?[{pct:'p97',stroke:'#B9CCEF',sw:'1.2',dash:'5 3',label:'97th',fw:'400'},
       {pct:'p90',stroke:'#8FADE8',sw:'1.2',dash:'5 3',label:'90th',fw:'400'},
@@ -925,7 +1021,8 @@ function buildGrowthChart(logs,mode,valueKey,tables,fmt,axisFmt){
       {pct:'p10',stroke:'#8FADE8',sw:'1.2',dash:'5 3',label:'10th',fw:'400'},
       {pct:'p3',stroke:'#B9CCEF',sw:'1.2',dash:'5 3',label:'3rd',fw:'400'}];
   const curves=curveDefs.map(({pct,stroke,sw,dash,label,fw})=>{
-    const vk=srcKeys.filter(k=>src[k][pct]!=null);
+    const vk=curveKeys.filter(k=>src[k][pct]!=null);
+    if(!vk.length)return {points:'',stroke,sw,dash,label,fw,leftPct:'0',topPct:'0'};
     const points=vk.map(k=>`${xS(k).toFixed(1)},${yS(src[k][pct]).toFixed(1)}`).join(' ');
     const lk=vk[vk.length-1];
     return {points,stroke,sw,dash,label,fw,
@@ -933,9 +1030,18 @@ function buildGrowthChart(logs,mode,valueKey,tables,fmt,axisFmt){
   });
   const valPoints=pts.map(w=>{const x=mode==='fenton'?w.gaWeeks:w.corrMonths;
     return `${xS(x).toFixed(1)},${yS(w[valueKey]).toFixed(1)}`;}).join(' ');
-  const valDots=pts.map(w=>{const x=mode==='fenton'?w.gaWeeks:w.corrMonths;
+  const valDots=pts.map(w=>{
+    const x=mode==='fenton'?w.gaWeeks:w.corrMonths;
+    const valueText=fmt(w[valueKey]);
+    // Percentile against the full table, not just the zoomed slice.
+    const pct=getPctLabel(w[valueKey],src,allKeys,x);
+    const ageLabel=mode==='fenton'
+      ?`${Math.floor(w.gaWeeks)}w ${Math.round((w.gaWeeks-Math.floor(w.gaWeeks))*7)}d GA`
+      :`${(+w.corrMonths||0).toFixed(1)}mo corrected`;
     return {cx:xS(x).toFixed(1),cy:yS(w[valueKey]).toFixed(1),
-      tooltip:`${w.date} · ${fmt(w[valueKey])} · ${getPctLabel(w[valueKey],src,srcKeys,x)} percentile`};});
+      tooltip:`${w.date} · ${valueText} · ${pct} percentile`,
+      date:w.date,valueText,pct,ageLabel};
+  });
   return {W,H,gridLines,xTicks,curves,valPoints,valDots,
     xAxisLabel:mode==='fenton'?'Gestational age (weeks)':'Corrected age (months)'};
 }
@@ -946,9 +1052,11 @@ function growthChartHtml(gc){
   gc.xTicks.forEach(t=>svg+=`<line x1="${t.x}" x2="${t.x}" y1="14" y2="196" stroke="#E4E9EF" stroke-width="0.5"/>`);
   gc.curves.forEach(c=>svg+=`<polyline points="${c.points}" fill="none" stroke="${c.stroke}" stroke-width="${c.sw}"${c.dash?` stroke-dasharray="${c.dash}"`:''}/>`);
   if(gc.valPoints)svg+=`<polyline points="${gc.valPoints}" fill="none" stroke="#2F6FED" stroke-width="2.8"/>`;
-  gc.valDots.forEach(d=>{
-    svg+=`<circle cx="${d.cx}" cy="${d.cy}" r="7" fill="transparent" style="cursor:pointer"><title>${esc(d.tooltip)}</title></circle>`;
-    svg+=`<circle cx="${d.cx}" cy="${d.cy}" r="5" fill="#2F6FED" style="pointer-events:none"/>`;
+  gc.valDots.forEach((d,i)=>{
+    const sel=ui.selectedGrowthPoint&&ui.selectedGrowthPoint.date===d.date&&
+      ui.selectedGrowthPoint.valueText===d.valueText;
+    svg+=`<circle cx="${d.cx}" cy="${d.cy}" r="9" fill="transparent" style="cursor:pointer" onclick="selectGrowthPoint(${i})"><title>${esc(d.tooltip)}</title></circle>`;
+    svg+=`<circle cx="${d.cx}" cy="${d.cy}" r="${sel?7:5}" fill="#2F6FED"${sel?' stroke="#1A1A2E" stroke-width="2"':''} style="pointer-events:none"/>`;
     svg+=`<circle cx="${d.cx}" cy="${d.cy}" r="3" fill="#FFFFFF" style="pointer-events:none"/>`;
   });
   svg+='</svg>';
@@ -1035,14 +1143,43 @@ function loggerName(){
   return 'Someone';
 }
 
-let weekCache={sleep:[]};
+let weekCache={sleep:[],feed:[],growthDots:[],growthRange:null};
 function selectSleepBlock(di,bi){
   const b=weekCache.sleep[di]&&weekCache.sleep[di].blocks[bi];
   if(!b)return;
-  ui.selectedSleepBlock={day:weekCache.sleep[di].day,typeLabel:b.typeLabel,
-    startLabel:b.startLabel,endLabel:b.endLabel};
+  ui.selectedSleepBlock={day:weekCache.sleep[di].day,dateLabel:weekCache.sleep[di].dateKey,
+    typeLabel:b.typeLabel,startLabel:b.startLabel,endLabel:b.endLabel};
   render();
 }
+function selectFeedMarker(di,mi){
+  const d=weekCache.feed[di],m=d&&d.markers[mi];
+  if(!m)return;
+  ui.selectedFeedMarker={day:d.day,dateLabel:d.dateKey,typeLabel:m.typeLabel,
+    amt:m.amt,timeLabel:m.timeLabel,color:m.color,key:m.key};
+  render();
+}
+function selectGrowthPoint(i){
+  const d=weekCache.growthDots[i];
+  if(!d)return;
+  ui.selectedGrowthPoint={date:d.date,ageLabel:d.ageLabel,valueText:d.valueText,pct:d.pct};
+  render();
+}
+function zoomGrowth(dir){
+  const m=weekCache.growthRange;
+  if(!m)return;
+  const center=(m.lo+m.hi)/2,minSpan=m.mode==='fenton'?2:1;
+  let half=dir<0?(m.hi-m.lo)*0.7:Math.max(minSpan/2,(m.hi-m.lo)*0.35);
+  let lo=center-half,hi=center+half;
+  if(lo<m.fullMin){hi+=m.fullMin-lo;lo=m.fullMin;}
+  if(hi>m.fullMax){lo-=hi-m.fullMax;hi=m.fullMax;}
+  ui.growthZoomLo=Math.max(m.fullMin,lo);
+  ui.growthZoomHi=Math.min(m.fullMax,hi);
+  render();
+}
+function resetGrowthZoom(){ui.growthZoomLo=null;ui.growthZoomHi=null;render();}
+// The selected point belongs to the old metric, so drop it when switching.
+function setGrowthMetric(k){ui.growthMetric=k;ui.selectedGrowthPoint=null;render();}
+function feedLogPageBy(n){ui.feedLogPage=Math.max(0,(ui.feedLogPage||0)+n);render();}
 
 function chipHtml(label,active,color,onclick,sm){
   const cls=sm?'chip-sm':'chip';
@@ -1077,6 +1214,7 @@ function render(){
   // ══════════════════════════════════════════════════════════════ FEED
   if(ui.tab==='feed'){
     const week=buildFeedWeek();
+    weekCache.feed=week;
     const isBottle=ui.feedType!=='breast';
     const totalFeeds=week.reduce((a,d)=>a+d.markers.length,0);
     const perDay=(totalFeeds/7).toFixed(1);
@@ -1112,17 +1250,24 @@ function render(){
         <div class="card-title">Feeding Times This Week</div>
         <button class="btn-ghost" onclick="toggleUI('showSleepOverlay')">${ui.showSleepOverlay?'Hide sleep times':'Overlay sleep times'}</button>
       </div>
-      <div class="card-sub">${esc(feedPatternSentence(week))}</div>
+      <div class="card-sub" style="margin-bottom:12px">${esc(feedPatternSentence(week))}</div>
+      <div class="card-hint">Tap a feed to see its time and amount</div>
+      ${ui.selectedFeedMarker?`<div class="sel-block">
+        <span class="sel-dot" style="background:${ui.selectedFeedMarker.color}"></span>
+        <span>${esc(ui.selectedFeedMarker.day)} ${esc(ui.selectedFeedMarker.dateLabel)} · ${esc(ui.selectedFeedMarker.typeLabel)} · ${esc(ui.selectedFeedMarker.amt)} · ${esc(ui.selectedFeedMarker.timeLabel)}</span>
+      </div>`:''}
       <div class="week-grid">
         <div class="week-hours">${HOUR_LABELS.map(h=>`<div class="week-hour" style="top:${h.topPct}%">${h.label}</div>`).join('')}</div>
-        ${week.map(d=>`
+        ${week.map((d,di)=>`
           <div>
-            <div class="week-day-label">${d.day}</div>
+            <div class="week-day-label">${d.day}<br><span class="week-date">${esc(d.dateKey)}</span></div>
             <div class="week-track">
               ${ui.showSleepOverlay?d.sleepBlocks.map(b=>
                 `<div class="sleep-overlay" style="top:${b.topPct}%;height:${b.heightPct}%;background:${b.color}"></div>`).join(''):''}
-              ${d.markers.map(m=>
-                `<div class="feed-marker" style="top:${m.topPct}%;background:${m.color}"></div>`).join('')}
+              ${d.markers.map((m,mi)=>{
+                const sel=ui.selectedFeedMarker&&ui.selectedFeedMarker.key===m.key;
+                return `<div class="feed-marker" style="top:${m.topPct}%;background:${m.color};cursor:pointer;box-shadow:${sel?'0 0 0 2px #1A1A2E':'none'}" onclick="selectFeedMarker(${di},${mi})"></div>`;
+              }).join('')}
             </div>
           </div>`).join('')}
       </div>
@@ -1163,21 +1308,39 @@ function render(){
         <span><b style="background:#2F6FED"></b>Bottle oz</span>
         <span><b style="background:#06B6D4"></b>Breast sessions</span>
       </div>
-    </div>
+    </div>`;
 
+    const allFeedGroups=groupByDate(shared.feedLogs.slice().sort((a,b)=>(b.ts||0)-(a.ts||0)));
+    const feedPageSize=2;
+    const feedTotalPages=Math.max(1,Math.ceil(allFeedGroups.length/feedPageSize));
+    const feedPage=Math.min(ui.feedLogPage||0,feedTotalPages-1);
+    const feedGroups=allFeedGroups.slice(feedPage*feedPageSize,feedPage*feedPageSize+feedPageSize);
+
+    html+=`
     <div class="card">
       <div class="card-title" style="margin-bottom:14px">Recent</div>
-      <div class="log-list">
-        ${shared.feedLogs.slice().sort((a,b)=>(b.ts||0)-(a.ts||0)).slice(0,12).map(f=>`
-          <div class="log-row">
-            <div class="log-dot" style="background:${feedColor(f.type)}"></div>
-            <div class="log-main">
-              <div class="log-label">${f.type==='breast'?'Breast':'Bottle'} · ${f.type==='breast'?(f.duration||0)+' min':(f.amt||0)+' oz'}</div>
-              <div class="log-meta">${esc(f.time||'')} · ${esc(f.date||'')}${f.by?' · logged by '+esc(f.by):''}</div>
+      <div class="day-groups">
+        ${feedGroups.map(g=>`
+          <div>
+            <div class="day-head">${esc(g.date)}</div>
+            <div class="log-list">
+              ${g.items.map(f=>`
+                <div class="log-row">
+                  <div class="log-dot" style="background:${feedColor(f.type)}"></div>
+                  <div class="log-main">
+                    <div class="log-label">${f.type==='breast'?'Breast':'Bottle'} · ${f.type==='breast'?(f.duration||0)+' min':(f.amt||0)+' oz'}</div>
+                    <div class="log-meta">${esc(f.time||'')}${f.by?' · logged by '+esc(f.by):''}</div>
+                  </div>
+                  <div class="log-del" onclick="deleteFeed('${f._key}')">×</div>
+                </div>`).join('')}
             </div>
-            <div class="log-del" onclick="deleteFeed('${f._key}')">×</div>
           </div>`).join('')||'<div class="log-meta">No feeds logged yet.</div>'}
       </div>
+      ${allFeedGroups.length?`<div class="pager">
+        <button class="btn-page" ${feedPage>0?'':'disabled'} onclick="feedLogPageBy(-1)">← Newer</button>
+        <div class="pager-label">Page ${feedPage+1} of ${feedTotalPages}</div>
+        <button class="btn-page" ${feedPage<feedTotalPages-1?'':'disabled'} onclick="feedLogPageBy(1)">Older →</button>
+      </div>`:''}
     </div>`;
   }
 
@@ -1189,7 +1352,21 @@ function render(){
     // curve polyline follows array order, so unsorted data draws a zigzag.
     const logs=shared.weightLogs.slice().sort((a,b)=>
       ((a.ts||0)-(b.ts||0))||((a.gaWeeks||0)-(b.gaWeeks||0)));
-    const gc=buildGrowthChart(logs,chartMode,metric.key,metric.tables,metric.fmt,metric.axisFmt);
+    // Default view fits the actual measurements (with padding) instead of the
+    // full table range, so a preemie's early points aren't crushed to one edge.
+    const fullMin=chartMode==='fenton'?30:0,fullMax=chartMode==='fenton'?44:12;
+    const dataXs=logs.map(w=>chartMode==='fenton'?w.gaWeeks:w.corrMonths)
+      .filter(x=>x!=null&&!isNaN(x)&&x>=fullMin&&x<=fullMax);
+    const pad=Math.max((fullMax-fullMin)*0.06,chartMode==='fenton'?1:0.5);
+    const autoLo=dataXs.length?Math.max(fullMin,Math.min(...dataXs)-pad):fullMin;
+    const autoHi=dataXs.length?Math.min(fullMax,Math.max(...dataXs)+pad):fullMax;
+    const viewLo=ui.growthZoomLo!=null?Math.max(fullMin,ui.growthZoomLo):autoLo;
+    const viewHi=ui.growthZoomHi!=null?Math.min(fullMax,ui.growthZoomHi):autoHi;
+    weekCache.growthRange={lo:viewLo,hi:viewHi,fullMin,fullMax,mode:chartMode};
+    const canZoomIn=(viewHi-viewLo)>(chartMode==='fenton'?2:1)+1e-6;
+    const canZoomOut=viewLo>fullMin+1e-6||viewHi<fullMax-1e-6;
+    const gc=buildGrowthChart(logs,chartMode,metric.key,metric.tables,metric.fmt,metric.axisFmt,viewLo,viewHi);
+    weekCache.growthDots=gc.valDots;
     const src=chartMode==='fenton'?metric.tables.fenton:metric.tables.who;
     const srcKeys=Object.keys(src).map(Number).sort((a,b)=>a-b);
     const withVal=logs.filter(w=>w[metric.key]!=null&&!isNaN(w[metric.key]));
@@ -1210,7 +1387,7 @@ function render(){
 
     html+=`
     <div class="section-title">Growth</div>
-    <div class="section-sub">Weight vs. WHO / Fenton growth curves</div>
+    <div class="section-sub">${esc(metric.label)} vs. WHO / Fenton growth curves</div>
 
     <div class="card card-tight">
       <div class="card-title" style="margin-bottom:14px">Quick log</div>
@@ -1226,7 +1403,7 @@ function render(){
 
     <div class="chip-row">
       ${Object.keys(GROWTH_METRICS).map(k=>
-        chipHtml(GROWTH_METRICS[k].label,ui.growthMetric===k,'#2F6FED',`setUI('growthMetric','${k}')`)).join('')}
+        chipHtml(GROWTH_METRICS[k].label,ui.growthMetric===k,'#2F6FED',`setGrowthMetric('${k}')`)).join('')}
     </div>
 
     <div class="growth-panel">
@@ -1239,14 +1416,22 @@ function render(){
       <div class="card">
         <div class="card-head">
           <div class="card-title">Growth curve</div>
-          <div class="chip-row-sm">
+          <div class="chip-row-sm" style="flex-wrap:wrap">
+            <button class="btn-zoom" ${canZoomOut?'':'disabled'} onclick="zoomGrowth(-1)">−</button>
+            <button class="btn-zoom" ${canZoomIn?'':'disabled'} onclick="zoomGrowth(1)">+</button>
+            <button class="chip-sm" onclick="resetGrowthZoom()">Fit to data</button>
             ${chipHtml('Corrected',ui.growthMode==='corrected','#12B886',"setUI('growthMode','corrected')",true)}
             ${chipHtml('Gestational',ui.growthMode==='gestational','#12B886',"setUI('growthMode','gestational')",true)}
           </div>
         </div>
-        <div class="card-sub">${chartMode==='fenton'
+        <div class="card-sub" style="margin-bottom:8px">${chartMode==='fenton'
           ?`Fenton preterm growth curve (percentiles by gestational age) — ${metric.sourceName}`
           :`WHO growth curve (percentiles by corrected age) — ${metric.sourceName}`}</div>
+        <div class="card-hint">Tap a point to see its date, age, value, and percentile</div>
+        ${ui.selectedGrowthPoint?`<div class="sel-block">
+          <span class="sel-dot" style="background:#2F6FED"></span>
+          <span>${esc(ui.selectedGrowthPoint.date)} · ${esc(ui.selectedGrowthPoint.ageLabel)} · ${esc(ui.selectedGrowthPoint.valueText)} · ${esc(ui.selectedGrowthPoint.pct)} percentile</span>
+        </div>`:''}
         ${growthChartHtml(gc)}
         <div class="gc-legend">
           ${gc.curves.map(c=>`<span><i style="background:${c.stroke}"></i>${c.label} percentile</span>`).join('')}
@@ -1262,6 +1447,7 @@ function render(){
             ${chipHtml('Gestational',ui.growthMode==='gestational','#12B886',"setUI('growthMode','gestational')",true)}
           </div>
         </div>
+        <div class="scroll-log">
         <div class="log-list">
           ${logs.slice().reverse().map(w=>{
             const x=ui.growthMode==='gestational'?w.gaWeeks:w.corrMonths;
@@ -1277,6 +1463,7 @@ function render(){
               ${has?`<div class="log-pct">${esc(getPctLabel(w[metric.key],src,srcKeys,x))}</div>`:''}
             </div>`;
           }).join('')}
+        </div>
         </div>
       </div>
     </div>`;
@@ -1318,12 +1505,12 @@ function render(){
         <button class="btn-ghost" onclick="toggleUI('showFeedOverlay')">${ui.showFeedOverlay?'Hide feed times':'Overlay feed times'}</button>
       </div>
       <div class="card-sub">Tap a block to see its start and stop time</div>
-      ${sel?`<div class="sel-block">${esc(sel.day)} · ${esc(sel.typeLabel)} · ${esc(sel.startLabel)} – ${esc(sel.endLabel)}</div>`:''}
+      ${sel?`<div class="sel-block"><span>${esc(sel.day)}${sel.dateLabel?' '+esc(sel.dateLabel):''} · ${esc(sel.typeLabel)} · ${esc(sel.startLabel)} – ${esc(sel.endLabel)}</span></div>`:''}
       <div class="week-grid">
         <div class="week-hours">${HOUR_LABELS.map(h=>`<div class="week-hour" style="top:${h.topPct}%">${h.label}</div>`).join('')}</div>
         ${week.map((d,di)=>`
           <div>
-            <div class="week-day-label">${d.day}</div>
+            <div class="week-day-label">${d.day}<br><span class="week-date">${esc(d.dateKey)}</span></div>
             <div class="week-track">
               ${d.blocks.map((b,bi)=>
                 `<div class="sleep-block" style="top:${b.topPct}%;height:${b.heightPct}%;background:${b.color}" onclick="selectSleepBlock(${di},${bi})"></div>`).join('')}
@@ -1343,11 +1530,15 @@ function render(){
     const days=last7Days();
     const bars=days.map(d=>{
       const ss=shared.sleepLogs.filter(s=>s.date===d.key);
-      return {day:d.dow,
+      return {day:d.dow,dateLabel:d.key,
         nap:ss.filter(s=>s.type==='nap').reduce((a,s)=>a+(+s.hours||0),0),
         night:ss.filter(s=>s.type==='night').reduce((a,s)=>a+(+s.hours||0),0)};
     });
     const maxSleep=Math.max(...bars.map(b=>Math.max(b.nap,b.night)),1)*1.15;
+    const stretch=buildLongestStretch();
+    const maxStretch=Math.max(...stretch.map(s=>s.hours),1)*1.15;
+    const wakings=buildNightWakings();
+    const totalWakings=wakings.reduce((a,d)=>a+d.count,0);
 
     html+=`
     <div class="card">
@@ -1360,7 +1551,7 @@ function render(){
               <div class="trend-bar" style="height:${pctClamp(b.nap,maxSleep)}%;background:#64748B"></div>
               <div class="trend-bar" style="height:${pctClamp(b.night,maxSleep)}%;background:#06B6D4"></div>
             </div>
-            <div class="trend-day">${b.day}</div>
+            <div class="trend-day">${b.day}<br><span class="week-date">${esc(b.dateLabel)}</span></div>
           </div>`).join('')}
       </div>
       <div class="legend" style="margin-top:12px">
@@ -1370,17 +1561,56 @@ function render(){
     </div>
 
     <div class="card">
-      <div class="card-title" style="margin-bottom:14px">Recent</div>
-      <div class="log-list">
-        ${shared.sleepLogs.slice().sort((a,b)=>(b.ts||0)-(a.ts||0)).slice(0,12).map(s=>`
-          <div class="log-row">
-            <div class="log-dot" style="background:${sleepColor(s.type)}"></div>
-            <div class="log-main">
-              <div class="log-label">${s.type==='nap'?'Nap':'Night sleep'} · ${esc(hm(+s.hours||0))}</div>
-              <div class="log-meta">${esc(s.start||'')}–${esc(s.end||'')} · ${esc(s.date||'')}${s.by?' · logged by '+esc(s.by):''}</div>
+      <div class="card-title" style="margin-bottom:4px">Longest Sleep Stretch</div>
+      <div class="card-sub" style="margin-bottom:16px">Longest continuous overnight stretch, per night</div>
+      <div class="trend">
+        ${stretch.map(b=>`
+          <div class="trend-col">
+            <div class="trend-vals"><span>${b.hours?b.hours.toFixed(1)+'h':''}</span></div>
+            <div class="trend-bars">
+              <div class="trend-bar" style="width:18px;height:${pctClamp(b.hours,maxStretch)}%;background:#06B6D4"></div>
             </div>
-            <div class="log-del" onclick="deleteSleep('${s._key}')">×</div>
+            <div class="trend-day">${b.day}<br><span class="week-date">${esc(b.dateLabel)}</span></div>
+          </div>`).join('')}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title" style="margin-bottom:4px">Night Wakings</div>
+      <div class="card-sub" style="margin-bottom:16px">${totalWakings} waking${totalWakings===1?'':'s'} this week · ${(totalWakings/7).toFixed(1)} avg per night</div>
+      <div class="week-grid">
+        <div class="week-hours" style="height:160px">${NIGHT_HOUR_LABELS.map(h=>`<div class="week-hour" style="top:${h.topPct}%">${h.label}</div>`).join('')}</div>
+        ${wakings.map(d=>`
+          <div>
+            <div class="week-day-label">${d.day}<br><span class="week-date">${esc(d.dateLabel)}</span></div>
+            <div class="week-track" style="height:160px">
+              ${d.dots.map(w=>`<div class="wake-dot" title="${esc(w.timeLabel)}" style="top:${w.topPct}%"></div>`).join('')}
+            </div>
+            <div class="wake-count">${d.count}×</div>
+          </div>`).join('')}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title" style="margin-bottom:14px">Recent</div>
+      <div class="scroll-log">
+      <div class="day-groups">
+        ${groupByDate(shared.sleepLogs.slice().sort((a,b)=>(b.ts||0)-(a.ts||0))).map(g=>`
+          <div>
+            <div class="day-head">${esc(g.date)}</div>
+            <div class="log-list">
+              ${g.items.map(s=>`
+                <div class="log-row">
+                  <div class="log-dot" style="background:${sleepColor(s.type)}"></div>
+                  <div class="log-main">
+                    <div class="log-label">${s.type==='nap'?'Nap':'Night sleep'} · ${esc(hm(+s.hours||0))}</div>
+                    <div class="log-meta">${esc(s.start||'')}–${esc(s.end||'')}${s.by?' · logged by '+esc(s.by):''}</div>
+                  </div>
+                  <div class="log-del" onclick="deleteSleep('${s._key}')">×</div>
+                </div>`).join('')}
+            </div>
           </div>`).join('')||'<div class="log-meta">No sleep logged yet.</div>'}
+      </div>
       </div>
     </div>`;
   }
