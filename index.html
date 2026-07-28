@@ -361,6 +361,10 @@ input::placeholder{color:#C7C7DE;}
   <div class="modal" id="editModalBody"></div>
 </div>
 
+<div class="modal-back" id="logModal">
+  <div class="modal" id="logModalBody"></div>
+</div>
+
 <div class="modal-back" id="importModal">
   <div class="modal">
     <div class="modal-title">Import from Huckleberry</div>
@@ -656,7 +660,7 @@ let ui = {
   msAgeMode: 'corrected', msFilter: 'all',
   newWeightLb: '', newWeightOz: '', newLength: '', newHeadCirc: '',
   newMeasureDate: todayISO(),
-  selectedSleepBlock: null, selectedFeedMarker: null, selectedGrowthPoint: null, edit: null,
+  selectedSleepBlock: null, selectedFeedMarker: null, selectedGrowthPoint: null, edit: null, logOpen: null,
   showFeedOverlay: false, showSleepOverlay: false,
   growthZoomLo: null, growthZoomHi: null,
   feedLogPage: 0,
@@ -1270,7 +1274,6 @@ function render(){
     const week=buildFeedWeek();
     weekCache.feed=week;
     const nowPct=nowTopPct();
-    const isBottle=ui.feedType!=='breast';
     const totalFeeds=week.reduce((a,d)=>a+d.markers.length,0);
     const perDay=(totalFeeds/7).toFixed(1);
     const interval=totalFeeds?(24/(totalFeeds/7)).toFixed(1)+' hr':'—';
@@ -1278,24 +1281,7 @@ function render(){
     html+=`
     <div class="section-head">
       <div class="section-title">Today's Feeds</div>
-      <div class="fields">
-        ${chipHtml('Bottle',isBottle,'#2F6FED',"setFeedType('bottle')")}
-        ${chipHtml('Breast',!isBottle,'#2F6FED',"setFeedType('breast')")}
-        <div class="field">
-          <label>${isBottle?'Amount (oz)':'Duration (min)'}</label>
-          <input type="number" step="0.1" style="width:90px" value="${esc(ui.feedAmt)}"
-            oninput="setField('feedAmt',this.value)" placeholder="${isBottle?'3.2':'15'}"/>
-        </div>
-        <div class="field">
-          <label>Date</label>
-          <input type="date" value="${esc(ui.feedDate)}" oninput="setField('feedDate',this.value)"/>
-        </div>
-        <div class="field">
-          <label>Time</label>
-          <input type="time" value="${esc(ui.feedTime)}" oninput="setField('feedTime',this.value)"/>
-        </div>
-        <button class="btn-log" onclick="addFeed()">Log Feed</button>
-      </div>
+      <button class="btn-log" onclick="openLogFeed()">+ Log Feed</button>
     </div>
 
     <div class="tiles">
@@ -1447,20 +1433,11 @@ function render(){
     }
 
     html+=`
-    <div class="section-title">Growth</div>
-    <div class="section-sub">${esc(metric.label)} vs. WHO / Fenton growth curves</div>
-
-    <div class="card card-tight">
-      <div class="card-title" style="margin-bottom:14px">Quick log</div>
-      <div class="fields">
-        <div class="field"><label>Weight (lb)</label><input type="number" style="width:64px" value="${esc(ui.newWeightLb)}" oninput="setField('newWeightLb',this.value)"/></div>
-        <div class="field"><label>(oz)</label><input type="number" style="width:64px" value="${esc(ui.newWeightOz)}" oninput="setField('newWeightOz',this.value)"/></div>
-        <div class="field"><label>Length (in)</label><input type="number" step="0.1" style="width:78px" value="${esc(ui.newLength)}" oninput="setField('newLength',this.value)"/></div>
-        <div class="field"><label>Head circ. (in)</label><input type="number" step="0.1" style="width:78px" value="${esc(ui.newHeadCirc)}" oninput="setField('newHeadCirc',this.value)"/></div>
-        <div class="field"><label>Date</label><input type="date" value="${esc(ui.newMeasureDate)}" oninput="setField('newMeasureDate',this.value)"/></div>
-        <button class="btn-log" onclick="addMeasurement()">Log Measurement</button>
-      </div>
+    <div class="section-head">
+      <div class="section-title">Growth</div>
+      <button class="btn-log" onclick="openLogGrowth()">+ Log Measurement</button>
     </div>
+    <div class="section-sub">${esc(metric.label)} vs. WHO / Fenton growth curves</div>
 
     <div class="chip-row">
       ${Object.keys(GROWTH_METRICS).map(k=>
@@ -1548,12 +1525,7 @@ function render(){
     html+=`
     <div class="section-head">
       <div class="section-title">Sleep</div>
-      <div class="fields">
-        <div class="field"><label>Date</label><input type="date" value="${esc(ui.sleepDate)}" oninput="setField('sleepDate',this.value)"/></div>
-        <div class="field"><label>Start</label><input type="time" value="${esc(ui.sleepStart)}" oninput="setField('sleepStart',this.value)"/></div>
-        <div class="field"><label>End</label><input type="time" value="${esc(ui.sleepEnd)}" oninput="setField('sleepEnd',this.value)"/></div>
-        <button class="btn-log" onclick="addSleep()">Log Sleep</button>
-      </div>
+      <button class="btn-log" onclick="openLogSleep()">+ Log Sleep</button>
     </div>
 
     <div class="tiles">
@@ -1751,10 +1723,99 @@ function render(){
 // ─────────────────────────────────────────────────────────────────────────────
 function setField(k,v){ui[k]=v;}
 // Switching type swaps the meaning of the amount box, so reset it — breast
-// sessions default to 15 min, bottles start empty.
+// sessions default to 15 min, bottles start empty. Only the log modal itself
+// needs to redraw here — a full page render() would be wasted work and risks
+// fighting focus while the dialog is open.
 function setFeedType(t){
   if(ui.feedType!==t){ui.feedType=t;ui.feedAmt=(t==='breast')?'15':'';}
-  render();
+  if(ui.logOpen)renderLogModal();else render();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LOG A NEW ENTRY (feed / sleep / growth) — a popup, not inline page fields,
+// so it's obvious what you're editing versus what's just page furniture.
+// ─────────────────────────────────────────────────────────────────────────────
+function openLogFeed(){ui.logOpen='feed';renderLogModal();}
+function openLogSleep(){ui.logOpen='sleep';renderLogModal();}
+function openLogGrowth(){ui.logOpen='growth';renderLogModal();}
+function closeLog(){
+  ui.logOpen=null;
+  document.getElementById('logModal').classList.remove('visible');
+  document.getElementById('logModalBody').innerHTML='';
+}
+// Wrappers close the dialog only when the underlying add* succeeds — a
+// validation failure leaves it open with the toast as the cue why.
+function submitLogFeed(){if(addFeed())closeLog();}
+function submitLogSleep(){if(addSleep())closeLog();}
+function submitLogMeasurement(){if(addMeasurement())closeLog();}
+function renderLogModal(){
+  const kind=ui.logOpen;if(!kind)return;
+  let html='';
+  if(kind==='feed'){
+    const isBottle=ui.feedType!=='breast';
+    html=`
+      <div class="modal-title">Log a feed</div>
+      <div class="modal-sub">Add a bottle or breast feed to the log.</div>
+      <div class="chip-row">
+        ${chipHtml('Bottle',isBottle,'#2F6FED',"setFeedType('bottle')")}
+        ${chipHtml('Breast',!isBottle,'#2F6FED',"setFeedType('breast')")}
+      </div>
+      <div class="fields">
+        <div class="field">
+          <label>${isBottle?'Amount (oz)':'Duration (min)'}</label>
+          <input type="number" step="0.1" style="width:110px" value="${esc(ui.feedAmt)}"
+            oninput="setField('feedAmt',this.value)" placeholder="${isBottle?'3.2':'15'}"/>
+        </div>
+        <div class="field"><label>Date</label>
+          <input type="date" value="${esc(ui.feedDate)}" oninput="setField('feedDate',this.value)"/></div>
+        <div class="field"><label>Time</label>
+          <input type="time" value="${esc(ui.feedTime)}" oninput="setField('feedTime',this.value)"/></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeLog()">Cancel</button>
+        <button class="btn-log" onclick="submitLogFeed()">Log Feed</button>
+      </div>`;
+  } else if(kind==='sleep'){
+    html=`
+      <div class="modal-title">Log sleep</div>
+      <div class="modal-sub">Add a nap or night sleep to the log.</div>
+      <div class="fields">
+        <div class="field"><label>Date</label>
+          <input type="date" value="${esc(ui.sleepDate)}" oninput="setField('sleepDate',this.value)"/></div>
+        <div class="field"><label>Start</label>
+          <input type="time" value="${esc(ui.sleepStart)}" oninput="setField('sleepStart',this.value)"/></div>
+        <div class="field"><label>End</label>
+          <input type="time" value="${esc(ui.sleepEnd)}" oninput="setField('sleepEnd',this.value)"/></div>
+      </div>
+      <div class="summary-note">Nap or night is set from the start time, and the entry
+        is filed under the day it began.</div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeLog()">Cancel</button>
+        <button class="btn-log" onclick="submitLogSleep()">Log Sleep</button>
+      </div>`;
+  } else if(kind==='growth'){
+    html=`
+      <div class="modal-title">Log a measurement</div>
+      <div class="modal-sub">Weight, length, and head circumference — leave any blank you don't have.</div>
+      <div class="fields">
+        <div class="field"><label>Weight (lb)</label>
+          <input type="number" style="width:74px" value="${esc(ui.newWeightLb)}" oninput="setField('newWeightLb',this.value)"/></div>
+        <div class="field"><label>(oz)</label>
+          <input type="number" style="width:74px" value="${esc(ui.newWeightOz)}" oninput="setField('newWeightOz',this.value)"/></div>
+        <div class="field"><label>Length (in)</label>
+          <input type="number" step="0.1" style="width:84px" value="${esc(ui.newLength)}" oninput="setField('newLength',this.value)"/></div>
+        <div class="field"><label>Head circ. (in)</label>
+          <input type="number" step="0.1" style="width:90px" value="${esc(ui.newHeadCirc)}" oninput="setField('newHeadCirc',this.value)"/></div>
+        <div class="field"><label>Date</label>
+          <input type="date" value="${esc(ui.newMeasureDate)}" oninput="setField('newMeasureDate',this.value)"/></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeLog()">Cancel</button>
+        <button class="btn-log" onclick="submitLogMeasurement()">Log Measurement</button>
+      </div>`;
+  }
+  document.getElementById('logModalBody').innerHTML=html;
+  document.getElementById('logModal').classList.add('visible');
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2106,12 +2167,14 @@ function runImport(){
 function setTab(t){ui.tab=t;render();window.scrollTo(0,0);}
 function setUI(k,v){ui[k]=v;render();}
 function toggleUI(k){ui[k]=!ui[k];render();}
+// Returns true/false so callers (the log modal) know whether to close —
+// a validation failure should leave the dialog open with the toast as the cue.
 function addFeed(){
   const isBottle=ui.feedType!=='breast';
   const val=parseFloat(ui.feedAmt)||0;
-  if(val<=0){showToast(isBottle?'Enter an amount':'Enter a duration');return;}
+  if(val<=0){showToast(isBottle?'Enter an amount':'Enter a duration');return false;}
   const when=dateTimeFrom(ui.feedDate,ui.feedTime);
-  if(isNaN(when.getTime())){showToast('Pick a valid date');return;}
+  if(isNaN(when.getTime())){showToast('Pick a valid date');return false;}
   const log={
     type:isBottle?'bottle':'breast',
     time:when.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),
@@ -2122,6 +2185,7 @@ function addFeed(){
   db.ref('wesworld/feedLogs').push(log);
   ui.feedAmt='';
   showToast('Feed logged ✓');render();
+  return true;
 }
 
 function deleteFeed(key){
@@ -2131,7 +2195,7 @@ function deleteFeed(key){
 }
 
 function addSleep(){
-  if(!ui.sleepStart||!ui.sleepEnd){showToast('Set start and end time');return;}
+  if(!ui.sleepStart||!ui.sleepEnd){showToast('Set start and end time');return false;}
   const [sh,sm]=ui.sleepStart.split(':').map(Number);
   const [eh,em]=ui.sleepEnd.split(':').map(Number);
   let hrs=(eh*60+em-sh*60-sm)/60;if(hrs<=0)hrs+=24;
@@ -2141,7 +2205,7 @@ function addSleep(){
   // The record is filed under the date the sleep started, so an overnight
   // stretch stays on one night rather than splitting across two.
   const when=dateTimeFrom(ui.sleepDate,ui.sleepStart);
-  if(isNaN(when.getTime())){showToast('Pick a valid date');return;}
+  if(isNaN(when.getTime())){showToast('Pick a valid date');return false;}
   db.ref('wesworld/sleepLogs').push({
     type,start:ui.sleepStart,end:ui.sleepEnd,
     hours:Math.round(hrs*10)/10,
@@ -2149,6 +2213,7 @@ function addSleep(){
     by:loggerName(),ts:when.getTime()
   });
   showToast('Sleep logged ✓');render();
+  return true;
 }
 
 function deleteSleep(key){
@@ -2159,10 +2224,10 @@ function deleteSleep(key){
 function addMeasurement(){
   const lb=parseFloat(ui.newWeightLb)||0, oz=parseFloat(ui.newWeightOz)||0;
   const lenIn=parseFloat(ui.newLength)||0, hcIn=parseFloat(ui.newHeadCirc)||0;
-  if(lb<=0&&oz<=0&&lenIn<=0&&hcIn<=0){showToast('Enter at least one measurement');return;}
+  if(lb<=0&&oz<=0&&lenIn<=0&&hcIn<=0){showToast('Enter at least one measurement');return false;}
   const iso=ui.newMeasureDate||todayISO();
   const d=new Date(iso+'T00:00:00');
-  if(isNaN(d.getTime())){showToast('Pick a valid date');return;}
+  if(isNaN(d.getTime())){showToast('Pick a valid date');return false;}
   const chronoDays=Math.floor((d-BIRTH)/864e5);
   const totalGADays=BIRTH_GA_WEEKS*7+BIRTH_GA_DAYS+chronoDays;
   const entry={
@@ -2181,6 +2246,7 @@ function addMeasurement(){
   db.ref('wesworld/weightLogs').push(entry);
   ui.newWeightLb='';ui.newWeightOz='';ui.newLength='';ui.newHeadCirc='';
   showToast('Measurement logged ✓');render();
+  return true;
 }
 
 function toggleMs(id){
