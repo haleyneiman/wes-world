@@ -195,6 +195,10 @@ input::placeholder{color:#C7C7DE;}
   margin-bottom:14px;font-size:12.5px;color:var(--ink);
   display:flex;align-items:center;gap:8px;}
 .sel-dot{display:inline-block;width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.btn-edit{margin-left:auto;flex-shrink:0;padding:5px 12px;border-radius:999px;
+  font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--border);
+  background:var(--surface);color:var(--accent);font-family:'DM Sans',sans-serif;-webkit-appearance:none;}
+.log-edit{cursor:pointer;}
 .card-hint{font-size:11px;color:var(--muted);margin-bottom:12px;}
 .week-date{font-size:8px;opacity:.75;}
 .wake-dot{position:absolute;left:50%;width:8px;height:8px;border-radius:50%;
@@ -351,6 +355,10 @@ input::placeholder{color:#C7C7DE;}
     <button class="login-btn" onclick="doSignIn()">Sign In</button>
     <div class="login-error" id="loginError"></div>
   </div>
+</div>
+
+<div class="modal-back" id="editModal">
+  <div class="modal" id="editModalBody"></div>
 </div>
 
 <div class="modal-back" id="importModal">
@@ -648,7 +656,7 @@ let ui = {
   msAgeMode: 'corrected', msFilter: 'all',
   newWeightLb: '', newWeightOz: '', newLength: '', newHeadCirc: '',
   newMeasureDate: todayISO(),
-  selectedSleepBlock: null, selectedFeedMarker: null, selectedGrowthPoint: null,
+  selectedSleepBlock: null, selectedFeedMarker: null, selectedGrowthPoint: null, edit: null,
   showFeedOverlay: false, showSleepOverlay: false,
   growthZoomLo: null, growthZoomHi: null,
   feedLogPage: 0,
@@ -922,7 +930,8 @@ function buildSleepWeek(){
       topPct:a/24*100,heightPct:(b-a)/24*100,color:sleepColor(s.type),
       typeLabel:s.type==='nap'?'Nap':'Night sleep',
       startLabel:hourLabel(hhmmToHours(s.start)),
-      endLabel:hourLabel(hhmmToHours(s.end))
+      endLabel:hourLabel(hhmmToHours(s.end)),
+      key:s._key
     })));
     return {
       day:d.dow,dateKey:d.key,blocks,
@@ -1193,7 +1202,7 @@ function selectSleepBlock(di,bi){
   const b=weekCache.sleep[di]&&weekCache.sleep[di].blocks[bi];
   if(!b)return;
   ui.selectedSleepBlock={day:weekCache.sleep[di].day,dateLabel:weekCache.sleep[di].dateKey,
-    typeLabel:b.typeLabel,startLabel:b.startLabel,endLabel:b.endLabel};
+    typeLabel:b.typeLabel,startLabel:b.startLabel,endLabel:b.endLabel,key:b.key};
   render();
 }
 function selectFeedMarker(di,mi){
@@ -1270,12 +1279,12 @@ function render(){
     <div class="section-head">
       <div class="section-title">Today's Feeds</div>
       <div class="fields">
-        ${chipHtml('Bottle',isBottle,'#2F6FED',"setUI('feedType','bottle')")}
-        ${chipHtml('Breast',!isBottle,'#2F6FED',"setUI('feedType','breast')")}
+        ${chipHtml('Bottle',isBottle,'#2F6FED',"setFeedType('bottle')")}
+        ${chipHtml('Breast',!isBottle,'#2F6FED',"setFeedType('breast')")}
         <div class="field">
           <label>${isBottle?'Amount (oz)':'Duration (min)'}</label>
           <input type="number" step="0.1" style="width:90px" value="${esc(ui.feedAmt)}"
-            oninput="setField('feedAmt',this.value)" placeholder="${isBottle?'3.2':'18'}"/>
+            oninput="setField('feedAmt',this.value)" placeholder="${isBottle?'3.2':'15'}"/>
         </div>
         <div class="field">
           <label>Date</label>
@@ -1305,6 +1314,7 @@ function render(){
       ${ui.selectedFeedMarker?`<div class="sel-block">
         <span class="sel-dot" style="background:${ui.selectedFeedMarker.color}"></span>
         <span>${esc(ui.selectedFeedMarker.day)} ${esc(ui.selectedFeedMarker.dateLabel)} · ${esc(ui.selectedFeedMarker.typeLabel)} · ${esc(ui.selectedFeedMarker.amt)} · ${esc(ui.selectedFeedMarker.timeLabel)}</span>
+        <button class="btn-edit" onclick="openEditFeed('${ui.selectedFeedMarker.key}')">Edit</button>
       </div>`:''}
       <div class="week-grid">
         <div class="week-hours">${hourGutterHtml(nowPct)}</div>
@@ -1378,7 +1388,7 @@ function render(){
               ${g.items.map(f=>`
                 <div class="log-row">
                   <div class="log-dot" style="background:${feedColor(f.type)}"></div>
-                  <div class="log-main">
+                  <div class="log-main log-edit" onclick="openEditFeed('${f._key}')">
                     <div class="log-label">${f.type==='breast'?'Breast':'Bottle'} · ${f.type==='breast'?(f.duration||0)+' min':(f.amt||0)+' oz'}</div>
                     <div class="log-meta">${esc(f.time||'')}${f.by?' · logged by '+esc(f.by):''}</div>
                   </div>
@@ -1558,7 +1568,10 @@ function render(){
         <button class="btn-ghost" onclick="toggleUI('showFeedOverlay')">${ui.showFeedOverlay?'Hide feed times':'Overlay feed times'}</button>
       </div>
       <div class="card-sub">Tap a block to see its start and stop time</div>
-      ${sel?`<div class="sel-block"><span>${esc(sel.day)}${sel.dateLabel?' '+esc(sel.dateLabel):''} · ${esc(sel.typeLabel)} · ${esc(sel.startLabel)} – ${esc(sel.endLabel)}</span></div>`:''}
+      ${sel?`<div class="sel-block">
+        <span>${esc(sel.day)}${sel.dateLabel?' '+esc(sel.dateLabel):''} · ${esc(sel.typeLabel)} · ${esc(sel.startLabel)} – ${esc(sel.endLabel)}</span>
+        ${sel.key?`<button class="btn-edit" onclick="openEditSleep('${sel.key}')">Edit</button>`:''}
+      </div>`:''}
       <div class="week-grid">
         <div class="week-hours">${hourGutterHtml(nowPct)}</div>
         ${week.map((d,di)=>`
@@ -1656,7 +1669,7 @@ function render(){
               ${g.items.map(s=>`
                 <div class="log-row">
                   <div class="log-dot" style="background:${sleepColor(s.type)}"></div>
-                  <div class="log-main">
+                  <div class="log-main log-edit" onclick="openEditSleep('${s._key}')">
                     <div class="log-label">${s.type==='nap'?'Nap':'Night sleep'} · ${esc(hm(+s.hours||0))}</div>
                     <div class="log-meta">${esc(s.start||'')}–${esc(s.end||'')}${s.by?' · logged by '+esc(s.by):''}</div>
                   </div>
@@ -1737,6 +1750,137 @@ function render(){
 // ACTIONS
 // ─────────────────────────────────────────────────────────────────────────────
 function setField(k,v){ui[k]=v;}
+// Switching type swaps the meaning of the amount box, so reset it — breast
+// sessions default to 15 min, bottles start empty.
+function setFeedType(t){
+  if(ui.feedType!==t){ui.feedType=t;ui.feedAmt=(t==='breast')?'15':'';}
+  render();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EDIT AN EXISTING ENTRY
+// ─────────────────────────────────────────────────────────────────────────────
+function isoFromDate(d){
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function hhmmFromHours(h){
+  const hh=Math.floor(h),mm=Math.round((h-hh)*60);
+  return String(hh%24).padStart(2,'0')+':'+String(mm%60).padStart(2,'0');
+}
+function openEditFeed(key){
+  const f=shared.feedLogs.find(x=>x._key===key);
+  if(!f){showToast('Entry not found');return;}
+  ui.edit={kind:'feed',key,
+    type:f.type==='breast'?'breast':'bottle',
+    amt:String(f.type==='breast'?(f.duration||''):(f.amt||'')),
+    // Date comes from the timestamp (the label has no year); time comes from
+    // the label, which is what the charts and lists actually display.
+    date:isoFromDate(f.ts?new Date(f.ts):new Date()),
+    time:hhmmFromHours(logHour(f))};
+  renderEditModal();
+}
+function openEditSleep(key){
+  const s=shared.sleepLogs.find(x=>x._key===key);
+  if(!s){showToast('Entry not found');return;}
+  ui.edit={kind:'sleep',key,
+    date:isoFromDate(s.ts?new Date(s.ts):new Date()),
+    start:s.start||'',end:s.end||''};
+  renderEditModal();
+}
+function setEditField(k,v){ui.edit[k]=v;}
+function setEditType(t){
+  if(ui.edit&&ui.edit.type!==t){ui.edit.type=t;ui.edit.amt=(t==='breast')?'15':'';}
+  renderEditModal();
+}
+function closeEdit(){
+  ui.edit=null;
+  document.getElementById('editModal').classList.remove('visible');
+  document.getElementById('editModalBody').innerHTML='';
+}
+function renderEditModal(){
+  const e=ui.edit;if(!e)return;
+  const isFeed=e.kind==='feed';
+  const isBottle=e.type!=='breast';
+  document.getElementById('editModalBody').innerHTML=`
+    <div class="modal-title">Edit ${isFeed?'feed':'sleep'}</div>
+    <div class="modal-sub">Changes save straight to your log.</div>
+    ${isFeed?`
+      <div class="chip-row">
+        ${chipHtml('Bottle',isBottle,'#2F6FED',"setEditType('bottle')")}
+        ${chipHtml('Breast',!isBottle,'#2F6FED',"setEditType('breast')")}
+      </div>
+      <div class="fields">
+        <div class="field">
+          <label>${isBottle?'Amount (oz)':'Duration (min)'}</label>
+          <input type="number" step="0.1" style="width:110px" value="${esc(e.amt)}"
+            oninput="setEditField('amt',this.value)"/>
+        </div>
+        <div class="field"><label>Date</label>
+          <input type="date" value="${esc(e.date)}" oninput="setEditField('date',this.value)"/></div>
+        <div class="field"><label>Time</label>
+          <input type="time" value="${esc(e.time)}" oninput="setEditField('time',this.value)"/></div>
+      </div>`
+    :`
+      <div class="fields">
+        <div class="field"><label>Date</label>
+          <input type="date" value="${esc(e.date)}" oninput="setEditField('date',this.value)"/></div>
+        <div class="field"><label>Start</label>
+          <input type="time" value="${esc(e.start)}" oninput="setEditField('start',this.value)"/></div>
+        <div class="field"><label>End</label>
+          <input type="time" value="${esc(e.end)}" oninput="setEditField('end',this.value)"/></div>
+      </div>
+      <div class="summary-note">Nap or night is set from the start time, and the entry
+        is filed under the day it began.</div>`}
+    <div class="modal-actions">
+      <button class="btn-cancel" style="margin-right:auto;color:var(--red);border-color:#F3C9C9"
+        onclick="deleteFromEdit()">Delete</button>
+      <button class="btn-cancel" onclick="closeEdit()">Cancel</button>
+      <button class="btn-log" onclick="saveEdit()">Save</button>
+    </div>`;
+  document.getElementById('editModal').classList.add('visible');
+}
+function deleteFromEdit(){
+  const e=ui.edit;if(!e)return;
+  if(e.kind==='feed')deleteFeed(e.key); else deleteSleep(e.key);
+  ui.selectedFeedMarker=null;ui.selectedSleepBlock=null;
+  closeEdit();render();
+}
+function saveEdit(){
+  const e=ui.edit;if(!e)return;
+  if(e.kind==='feed'){
+    const isBottle=e.type!=='breast';
+    const val=parseFloat(e.amt)||0;
+    if(val<=0){showToast(isBottle?'Enter an amount':'Enter a duration');return;}
+    const when=dateTimeFrom(e.date,e.time);
+    if(isNaN(when.getTime())){showToast('Pick a valid date');return;}
+    db.ref('wesworld/feedLogs/'+e.key).update({
+      type:isBottle?'bottle':'breast',
+      // null clears the field that no longer applies after a type switch
+      amt:isBottle?Math.round(val*10)/10:null,
+      duration:isBottle?null:Math.round(val),
+      time:when.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),
+      date:MONTHS[when.getMonth()]+' '+when.getDate(),
+      ts:when.getTime()
+    });
+  } else {
+    if(!e.start||!e.end){showToast('Set start and end time');return;}
+    const [sh,sm]=e.start.split(':').map(Number);
+    const [eh,em]=e.end.split(':').map(Number);
+    let hrs=(eh*60+em-sh*60-sm)/60;if(hrs<=0)hrs+=24;
+    const when=dateTimeFrom(e.date,e.start);
+    if(isNaN(when.getTime())){showToast('Pick a valid date');return;}
+    const startHour=sh+sm/60;
+    db.ref('wesworld/sleepLogs/'+e.key).update({
+      type:(startHour>=19||startHour<6)?'night':'nap',
+      start:e.start,end:e.end,hours:Math.round(hrs*10)/10,
+      date:MONTHS[when.getMonth()]+' '+when.getDate(),
+      ts:when.getTime()
+    });
+  }
+  // The selection holds a snapshot of the old values, so drop it.
+  ui.selectedFeedMarker=null;ui.selectedSleepBlock=null;
+  closeEdit();showToast('Saved ✓');render();
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HUCKLEBERRY CSV IMPORT
