@@ -870,11 +870,12 @@ function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;',
 // WEEK DERIVATION — the prototype's grids, fed from real Firebase logs
 // ─────────────────────────────────────────────────────────────────────────────
 const DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+function dateKeyFor(d){return MONTHS[d.getMonth()]+' '+d.getDate();}
 function last7Days(){
   const out=[],now=new Date();
   for(let i=6;i>=0;i--){
     const d=new Date(now);d.setDate(now.getDate()-i);
-    out.push({key:MONTHS[d.getMonth()]+' '+d.getDate(),dow:DOW[d.getDay()]});
+    out.push({key:dateKeyFor(d),dow:DOW[d.getDay()],date:d});
   }
   return out;
 }
@@ -895,12 +896,32 @@ function hhmmToHours(t){
   return m?(+m[1]+ +m[2]/60):null;
 }
 // A sleep log becomes one or two [start,end] spans so overnight wraps render correctly.
+// Span 0 is the portion on the start day (e.g. 21:00-24:00); span 1, when present,
+// is the post-midnight remainder (e.g. 00:00-04:00) — which belongs on the NEXT
+// calendar day's column, not the start day's.
 function sleepSpans(s){
   const a=hhmmToHours(s.start),b=hhmmToHours(s.end);
   if(a==null||b==null)return [];
   if(b>a)return [[a,b]];
   return [[a,24],[0,b]];
 }
+// The segment(s) of sleep that visually belong in `dateKey`'s column: that
+// day's own sleep records (their start-day span), plus the post-midnight
+// remainder of any sleep filed under the previous day that wrapped past
+// midnight — that remainder is today's early morning, not yesterday's.
+function sleepSegmentsForDay(dateKey,prevDateKey){
+  const segs=[];
+  shared.sleepLogs.filter(s=>s.date===dateKey).forEach(s=>{
+    const spans=sleepSpans(s);
+    if(spans.length)segs.push({s,span:spans[0]});
+  });
+  shared.sleepLogs.filter(s=>s.date===prevDateKey).forEach(s=>{
+    const spans=sleepSpans(s);
+    if(spans.length>1)segs.push({s,span:spans[1]});
+  });
+  return segs;
+}
+function prevDateKey(d){const p=new Date(d);p.setDate(p.getDate()-1);return dateKeyFor(p);}
 function feedColor(type){return type==='breast'?'#06B6D4':'#2F6FED';}
 // Night uses violet rather than cyan — cyan is already Breast's feed color,
 // and the two collide wherever a chart overlays sleep on top of feeds.
@@ -910,10 +931,8 @@ function buildFeedWeek(){
   const days=last7Days();
   return days.map(d=>{
     const feeds=shared.feedLogs.filter(f=>f.date===d.key);
-    const sleeps=shared.sleepLogs.filter(s=>s.date===d.key);
-    const sleepBlocks=[];
-    sleeps.forEach(s=>sleepSpans(s).forEach(([a,b])=>sleepBlocks.push({
-      topPct:a/24*100,heightPct:(b-a)/24*100,color:sleepColor(s.type)})));
+    const sleepBlocks=sleepSegmentsForDay(d.key,prevDateKey(d.date)).map(({s,span:[a,b]})=>({
+      topPct:a/24*100,heightPct:(b-a)/24*100,color:sleepColor(s.type)}));
     return {
       day:d.dow,dateKey:d.key,
       markers:feeds.map(f=>({
@@ -929,16 +948,14 @@ function buildFeedWeek(){
 function buildSleepWeek(){
   const days=last7Days();
   return days.map(d=>{
-    const sleeps=shared.sleepLogs.filter(s=>s.date===d.key);
     const feeds=shared.feedLogs.filter(f=>f.date===d.key);
-    const blocks=[];
-    sleeps.forEach(s=>sleepSpans(s).forEach(([a,b])=>blocks.push({
+    const blocks=sleepSegmentsForDay(d.key,prevDateKey(d.date)).map(({s,span:[a,b]})=>({
       topPct:a/24*100,heightPct:(b-a)/24*100,color:sleepColor(s.type),
       typeLabel:s.type==='nap'?'Nap':'Night sleep',
       startLabel:hourLabel(hhmmToHours(s.start)),
       endLabel:hourLabel(hhmmToHours(s.end)),
       key:s._key
-    })));
+    }));
     return {
       day:d.dow,dateKey:d.key,blocks,
       feedMarkers:feeds.map(f=>({topPct:logHour(f)/24*100,color:f.type==='breast'?'#F5B301':'#F97316'}))
