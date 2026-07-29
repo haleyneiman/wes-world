@@ -153,6 +153,8 @@ input::placeholder{color:#C7C7DE;}
   white-space:nowrap;font-family:'DM Sans',sans-serif;-webkit-appearance:none;}
 .chip-sm.active{font-weight:600;color:#fff;}
 .chip-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
+/* The what-am-I-logging picker, between the dialog title and its form. */
+.kind-row{margin-top:16px;margin-bottom:2px;}
 .chip-row-sm{display:flex;gap:6px;}
 .btn-ghost{padding:6px 12px;border-radius:999px;font-size:10.5px;font-weight:600;cursor:pointer;
   border:1px solid var(--border);background:var(--surface);color:var(--muted);
@@ -183,11 +185,21 @@ input::placeholder{color:#C7C7DE;}
 .now-tag{position:absolute;left:0;font-size:8px;font-weight:700;color:var(--red);
   transform:translateY(-50%);letter-spacing:.3px;background:var(--surface);
   padding:1px 2px 1px 0;z-index:4;}
-.feed-marker{position:absolute;left:8%;width:84%;height:6px;border-radius:3px;transform:translateY(-50%);}
-.sleep-overlay{position:absolute;left:2%;width:96%;border-radius:4px;opacity:.45;}
+/* The bars are only a few px tall, so each one sits inside a taller invisible
+   row that takes the tap — the ring below still hugs the visible bar. */
+.bar-hit{position:absolute;left:0;right:0;height:18px;transform:translateY(-50%);
+  display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:2;}
+.feed-marker{width:84%;height:6px;border-radius:3px;}
+.sleep-overlay{position:absolute;left:2%;width:96%;border-radius:4px;opacity:.45;cursor:pointer;}
 .sleep-block{position:absolute;left:8%;width:84%;border-radius:4px;cursor:pointer;}
-.feed-overlay{position:absolute;left:2%;width:96%;height:3px;border-radius:2px;
-  transform:translateY(-50%);box-shadow:0 0 0 1px #fff;}
+.feed-overlay{width:96%;height:3px;border-radius:2px;box-shadow:0 0 0 1px #fff;}
+/* Selected: a white gap then a dark ring, so it reads against any fill. */
+.bar-hit.selected{z-index:6;}
+.bar-hit.selected .feed-marker,.bar-hit.selected .feed-overlay,
+.sleep-block.selected,.sleep-overlay.selected{
+  box-shadow:0 0 0 1.5px #fff,0 0 0 3.5px var(--ink);}
+.sleep-block.selected,.sleep-overlay.selected{z-index:5;}
+.sleep-overlay.selected{opacity:.72;}
 .legend{display:flex;gap:16px;margin-top:12px;font-size:10.5px;color:var(--muted);flex-wrap:wrap;}
 .legend i{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:4px;font-style:normal;}
 .legend i.sq{border-radius:2px;}
@@ -936,23 +948,38 @@ function feedColor(type){return type==='breast'?'#06B6D4':'#2F6FED';}
 // and the two collide wherever a chart overlays sleep on top of feeds.
 function sleepColor(type){return type==='nap'?'#64748B':'#8B5CF6';}
 
+// Feeds overlaid on the sleep chart get warm colors — the primary feed blue and
+// cyan are too close to the sleep fills to read on top of them.
+function feedOverlayColor(type){return type==='breast'?'#F5B301':'#F97316';}
+// Both charts carry the full detail for feeds AND sleeps, so each one can offer
+// the same tap-to-select on its own entries and on the overlaid ones.
+function feedDetail(f){
+  const h=logHour(f);
+  return {hour:h,topPct:h/24*100,
+    typeLabel:f.type==='breast'?'Breast':'Bottle',
+    amt:f.type==='breast'?((f.duration||0)+' min'):((f.amt||0)+' oz'),
+    timeLabel:hourLabel(h),key:f._key};
+}
+function feedsForDay(d,overlay){
+  return shared.feedLogs.filter(f=>f.date===d.key)
+    .map(f=>({...feedDetail(f),color:(overlay?feedOverlayColor:feedColor)(f.type)}));
+}
+// An overnight sleep yields two segments sharing one key, so selecting it
+// highlights both halves — they are one entry.
+function sleepBlocksForDay(d){
+  return sleepSegmentsForDay(d.key,prevDateKey(d.date)).map(({s,span:[a,b]})=>({
+    topPct:a/24*100,heightPct:(b-a)/24*100,color:sleepColor(s.type),
+    typeLabel:s.type==='nap'?'Nap':'Night sleep',
+    startLabel:hourLabel(hhmmToHours(s.start)),
+    endLabel:hourLabel(hhmmToHours(s.end)),
+    key:s._key}));
+}
 function buildFeedWeek(){
-  const days=last7Days();
-  return days.map(d=>{
-    const feeds=shared.feedLogs.filter(f=>f.date===d.key);
-    const sleepBlocks=sleepSegmentsForDay(d.key,prevDateKey(d.date)).map(({s,span:[a,b]})=>({
-      topPct:a/24*100,heightPct:(b-a)/24*100,color:sleepColor(s.type)}));
-    return {
-      day:d.dow,dateKey:d.key,
-      markers:feeds.map(f=>({
-        hour:logHour(f),topPct:logHour(f)/24*100,color:feedColor(f.type),
-        typeLabel:f.type==='breast'?'Breast':'Bottle',
-        amt:f.type==='breast'?((f.duration||0)+' min'):((f.amt||0)+' oz'),
-        timeLabel:hourLabel(logHour(f)),key:f._key
-      })),
-      sleepBlocks
-    };
-  });
+  return last7Days().map(d=>({
+    day:d.dow,dateKey:d.key,
+    markers:feedsForDay(d,false),
+    sleepBlocks:sleepBlocksForDay(d)
+  }));
 }
 // Day/night boundaries for the feed-interval split, as hours of the day.
 const FEED_DAY_START=7,FEED_NIGHT_START=19;
@@ -978,21 +1005,11 @@ function feedGaps(week){
   return {dayText:avg(day),nightText:avg(night)};
 }
 function buildSleepWeek(){
-  const days=last7Days();
-  return days.map(d=>{
-    const feeds=shared.feedLogs.filter(f=>f.date===d.key);
-    const blocks=sleepSegmentsForDay(d.key,prevDateKey(d.date)).map(({s,span:[a,b]})=>({
-      topPct:a/24*100,heightPct:(b-a)/24*100,color:sleepColor(s.type),
-      typeLabel:s.type==='nap'?'Nap':'Night sleep',
-      startLabel:hourLabel(hhmmToHours(s.start)),
-      endLabel:hourLabel(hhmmToHours(s.end)),
-      key:s._key
-    }));
-    return {
-      day:d.dow,dateKey:d.key,blocks,
-      feedMarkers:feeds.map(f=>({topPct:logHour(f)/24*100,color:f.type==='breast'?'#F5B301':'#F97316'}))
-    };
-  });
+  return last7Days().map(d=>({
+    day:d.dow,dateKey:d.key,
+    blocks:sleepBlocksForDay(d),
+    feedMarkers:feedsForDay(d,true)
+  }));
 }
 // Every 2 hours across the 24h axis.
 const HOUR_LABELS=Array.from({length:13},(_,i)=>{
@@ -1261,19 +1278,45 @@ function loggerName(){
 
 let weekCache={sleep:[],feed:[],growthDots:[],growthRange:null};
 let growthChartCtx=null;
-function selectSleepBlock(di,bi){
-  const b=weekCache.sleep[di]&&weekCache.sleep[di].blocks[bi];
+// `src` is which chart was tapped ('feed' or 'sleep'); each holds its own
+// entries plus the other kind as an overlay, so both are selectable from either.
+function selectSleepBlock(src,di,bi){
+  const day=weekCache[src]&&weekCache[src][di];
+  const list=day&&(src==='sleep'?day.blocks:day.sleepBlocks);
+  const b=list&&list[bi];
   if(!b)return;
-  ui.selectedSleepBlock={day:weekCache.sleep[di].day,dateLabel:weekCache.sleep[di].dateKey,
-    typeLabel:b.typeLabel,startLabel:b.startLabel,endLabel:b.endLabel,key:b.key};
+  ui.selectedSleepBlock={day:day.day,dateLabel:day.dateKey,typeLabel:b.typeLabel,
+    startLabel:b.startLabel,endLabel:b.endLabel,key:b.key};
   render();
 }
-function selectFeedMarker(di,mi){
-  const d=weekCache.feed[di],m=d&&d.markers[mi];
+function selectFeedMarker(src,di,mi){
+  const day=weekCache[src]&&weekCache[src][di];
+  const list=day&&(src==='feed'?day.markers:day.feedMarkers);
+  const m=list&&list[mi];
   if(!m)return;
-  ui.selectedFeedMarker={day:d.day,dateLabel:d.dateKey,typeLabel:m.typeLabel,
+  ui.selectedFeedMarker={day:day.day,dateLabel:day.dateKey,typeLabel:m.typeLabel,
     amt:m.amt,timeLabel:m.timeLabel,color:m.color,key:m.key};
   render();
+}
+// One renderer each, so the detail row looks the same on whichever chart the
+// entry was tapped from.
+function feedSelBlockHtml(){
+  const m=ui.selectedFeedMarker;
+  if(!m)return '';
+  return `<div class="sel-block">
+    <span class="sel-dot" style="background:${m.color}"></span>
+    <span>${esc(m.day)} ${esc(m.dateLabel)} · ${esc(m.typeLabel)} · ${esc(m.amt)} · ${esc(m.timeLabel)}</span>
+    ${m.key?`<button class="btn-edit" onclick="openEditFeed('${m.key}')">Edit</button>`:''}
+  </div>`;
+}
+function sleepSelBlockHtml(){
+  const s=ui.selectedSleepBlock;
+  if(!s)return '';
+  return `<div class="sel-block">
+    <span class="sel-dot" style="background:${sleepColor(s.typeLabel==='Nap'?'nap':'night')}"></span>
+    <span>${esc(s.day)}${s.dateLabel?' '+esc(s.dateLabel):''} · ${esc(s.typeLabel)} · ${esc(s.startLabel)} – ${esc(s.endLabel)}</span>
+    ${s.key?`<button class="btn-edit" onclick="openEditSleep('${s.key}')">Edit</button>`:''}
+  </div>`;
 }
 function selectGrowthPoint(i){
   const d=weekCache.growthDots[i];
@@ -1459,7 +1502,7 @@ function render(){
     html+=`
     <div class="section-head">
       <div class="section-title">Today's Feeds</div>
-      <button class="btn-log" onclick="openLogFeed()">+ Log Feed</button>
+      <button class="btn-log" onclick="openLog('feed')">+ Log</button>
     </div>
 
     <div class="tiles tiles-4">
@@ -1477,12 +1520,9 @@ function render(){
         <button class="btn-ghost" onclick="toggleUI('showSleepOverlay')">${ui.showSleepOverlay?'Hide sleep times':'Overlay sleep times'}</button>
       </div>
       <div class="card-sub" style="margin-bottom:12px">${esc(feedPatternSentence(week))}</div>
-      <div class="card-hint">Tap a feed to see its time and amount</div>
-      ${ui.selectedFeedMarker?`<div class="sel-block">
-        <span class="sel-dot" style="background:${ui.selectedFeedMarker.color}"></span>
-        <span>${esc(ui.selectedFeedMarker.day)} ${esc(ui.selectedFeedMarker.dateLabel)} · ${esc(ui.selectedFeedMarker.typeLabel)} · ${esc(ui.selectedFeedMarker.amt)} · ${esc(ui.selectedFeedMarker.timeLabel)}</span>
-        <button class="btn-edit" onclick="openEditFeed('${ui.selectedFeedMarker.key}')">Edit</button>
-      </div>`:''}
+      <div class="card-hint">Tap a feed${ui.showSleepOverlay?' or a sleep block':''} to see its details</div>
+      ${feedSelBlockHtml()}
+      ${ui.showSleepOverlay?sleepSelBlockHtml():''}
       <div class="week-grid">
         <div>
           <div class="week-day-label" aria-hidden="true" style="visibility:hidden">&nbsp;<br><span class="week-date">&nbsp;</span></div>
@@ -1492,11 +1532,13 @@ function render(){
           <div>
             <div class="week-day-label">${d.day}<br><span class="week-date">${esc(d.dateKey)}</span></div>
             <div class="week-track">
-              ${ui.showSleepOverlay?d.sleepBlocks.map(b=>
-                `<div class="sleep-overlay" style="top:${b.topPct}%;height:${b.heightPct}%;background:${b.color}"></div>`).join(''):''}
+              ${ui.showSleepOverlay?d.sleepBlocks.map((b,bi)=>{
+                const sel=ui.selectedSleepBlock&&b.key&&ui.selectedSleepBlock.key===b.key;
+                return `<div class="sleep-overlay${sel?' selected':''}" style="top:${b.topPct}%;height:${b.heightPct}%;background:${b.color}" onclick="selectSleepBlock('feed',${di},${bi})"></div>`;
+              }).join(''):''}
               ${d.markers.map((m,mi)=>{
                 const sel=ui.selectedFeedMarker&&ui.selectedFeedMarker.key===m.key;
-                return `<div class="feed-marker" style="top:${m.topPct}%;background:${m.color};cursor:pointer;box-shadow:${sel?'0 0 0 2px #1A1A2E':'none'}" onclick="selectFeedMarker(${di},${mi})"></div>`;
+                return `<div class="bar-hit${sel?' selected':''}" style="top:${m.topPct}%" onclick="selectFeedMarker('feed',${di},${mi})"><div class="feed-marker" style="background:${m.color}"></div></div>`;
               }).join('')}
               <div class="now-line" style="top:${nowPct}%"></div>
             </div>
@@ -1623,7 +1665,7 @@ function render(){
     html+=`
     <div class="section-head">
       <div class="section-title">Growth</div>
-      <button class="btn-log" onclick="openLogGrowth()">+ Log Measurement</button>
+      <button class="btn-log" onclick="openLog('growth')">+ Log</button>
     </div>
     <div class="section-sub">${esc(metric.label)} vs. WHO / Fenton growth curves</div>
 
@@ -1714,7 +1756,7 @@ function render(){
     html+=`
     <div class="section-head">
       <div class="section-title">Sleep</div>
-      <button class="btn-log" onclick="openLogSleep()">+ Log Sleep</button>
+      <button class="btn-log" onclick="openLog('sleep')">+ Log</button>
     </div>
 
     <div class="tiles">
@@ -1728,11 +1770,9 @@ function render(){
         <div class="card-title">Sleep Blocks This Week</div>
         <button class="btn-ghost" onclick="toggleUI('showFeedOverlay')">${ui.showFeedOverlay?'Hide feed times':'Overlay feed times'}</button>
       </div>
-      <div class="card-sub">Tap a block to see its start and stop time</div>
-      ${sel?`<div class="sel-block">
-        <span>${esc(sel.day)}${sel.dateLabel?' '+esc(sel.dateLabel):''} · ${esc(sel.typeLabel)} · ${esc(sel.startLabel)} – ${esc(sel.endLabel)}</span>
-        ${sel.key?`<button class="btn-edit" onclick="openEditSleep('${sel.key}')">Edit</button>`:''}
-      </div>`:''}
+      <div class="card-sub">Tap a sleep block${ui.showFeedOverlay?' or a feed':''} to see its details</div>
+      ${sleepSelBlockHtml()}
+      ${ui.showFeedOverlay?feedSelBlockHtml():''}
       <div class="week-grid">
         <div>
           <div class="week-day-label" aria-hidden="true" style="visibility:hidden">&nbsp;<br><span class="week-date">&nbsp;</span></div>
@@ -1742,10 +1782,14 @@ function render(){
           <div>
             <div class="week-day-label">${d.day}<br><span class="week-date">${esc(d.dateKey)}</span></div>
             <div class="week-track">
-              ${d.blocks.map((b,bi)=>
-                `<div class="sleep-block" style="top:${b.topPct}%;height:${b.heightPct}%;background:${b.color}" onclick="selectSleepBlock(${di},${bi})"></div>`).join('')}
-              ${ui.showFeedOverlay?d.feedMarkers.map(m=>
-                `<div class="feed-overlay" style="top:${m.topPct}%;background:${m.color}"></div>`).join(''):''}
+              ${d.blocks.map((b,bi)=>{
+                const s=sel&&b.key&&sel.key===b.key;
+                return `<div class="sleep-block${s?' selected':''}" style="top:${b.topPct}%;height:${b.heightPct}%;background:${b.color}" onclick="selectSleepBlock('sleep',${di},${bi})"></div>`;
+              }).join('')}
+              ${ui.showFeedOverlay?d.feedMarkers.map((m,mi)=>{
+                const s=ui.selectedFeedMarker&&ui.selectedFeedMarker.key===m.key;
+                return `<div class="bar-hit${s?' selected':''}" style="top:${m.topPct}%" onclick="selectFeedMarker('sleep',${di},${mi})"><div class="feed-overlay" style="background:${m.color}"></div></div>`;
+              }).join(''):''}
               <div class="now-line" style="top:${nowPct}%"></div>
             </div>
           </div>`).join('')}
@@ -1863,7 +1907,10 @@ function render(){
       :`${ages.curGAWeeks}w ${ages.curGARemDays}d GA`;
 
     html+=`
-    <div class="section-title" style="margin-bottom:18px">Milestones</div>
+    <div class="section-head">
+      <div class="section-title">Milestones</div>
+      <button class="btn-log" onclick="openLog('feed')">+ Log</button>
+    </div>
 
     <div class="card card-tight">
       <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;flex-wrap:wrap;gap:8px">
@@ -1931,26 +1978,28 @@ function setFeedType(t){
 // LOG A NEW ENTRY (feed / sleep / growth) — a popup, not inline page fields,
 // so it's obvious what you're editing versus what's just page furniture.
 // ─────────────────────────────────────────────────────────────────────────────
-function openLogFeed(){ui.logOpen='feed';renderLogModal();}
-function openLogSleep(){ui.logOpen='sleep';renderLogModal();}
-function openLogGrowth(){ui.logOpen='growth';renderLogModal();}
+const LOG_KINDS=[{id:'feed',label:'Feed'},{id:'sleep',label:'Sleep'},{id:'growth',label:'Growth'}];
+// One entry point for all three. The tab picks the starting kind, but the
+// dialog's own picker switches between them without closing.
+function openLog(kind){ui.logOpen=kind||'feed';renderLogModal();}
+function setLogKind(k){if(ui.logOpen!==k){ui.logOpen=k;renderLogModal();}}
 function closeLog(){
   ui.logOpen=null;
   document.getElementById('logModal').classList.remove('visible');
   document.getElementById('logModalBody').innerHTML='';
 }
-// Wrappers close the dialog only when the underlying add* succeeds — a
-// validation failure leaves it open with the toast as the cue why.
-function submitLogFeed(){if(addFeed())closeLog();}
-function submitLogSleep(){if(addSleep())closeLog();}
-function submitLogMeasurement(){if(addMeasurement())closeLog();}
+// Entries save immediately, so a successful add re-renders the dialog rather
+// than closing it — logging a feed and the sleep that followed is one sitting.
+// A validation failure also leaves it open, with the toast as the cue why.
+function submitLogFeed(){if(addFeed())renderLogModal();}
+function submitLogSleep(){if(addSleep())renderLogModal();}
+function submitLogMeasurement(){if(addMeasurement())renderLogModal();}
 function renderLogModal(){
   const kind=ui.logOpen;if(!kind)return;
   let html='';
   if(kind==='feed'){
     const isBottle=ui.feedType!=='breast';
     html=`
-      <div class="modal-title">Log a feed</div>
       <div class="modal-sub">Add a bottle or breast feed to the log.</div>
       <div class="chip-row">
         ${chipHtml('Bottle',isBottle,'#2F6FED',"setFeedType('bottle')")}
@@ -1968,12 +2017,11 @@ function renderLogModal(){
           <input type="time" value="${esc(ui.feedTime)}" oninput="setField('feedTime',this.value)"/></div>
       </div>
       <div class="modal-actions">
-        <button class="btn-cancel" onclick="closeLog()">Cancel</button>
+        <button class="btn-cancel" onclick="closeLog()">Done</button>
         <button class="btn-log" onclick="submitLogFeed()">Log Feed</button>
       </div>`;
   } else if(kind==='sleep'){
     html=`
-      <div class="modal-title">Log sleep</div>
       <div class="modal-sub">Add a nap or night sleep to the log.</div>
       <div class="fields">
         <div class="field"><label>Date</label>
@@ -1986,12 +2034,11 @@ function renderLogModal(){
       <div class="summary-note">Nap or night is set from the start time, and the entry
         is filed under the day it began.</div>
       <div class="modal-actions">
-        <button class="btn-cancel" onclick="closeLog()">Cancel</button>
+        <button class="btn-cancel" onclick="closeLog()">Done</button>
         <button class="btn-log" onclick="submitLogSleep()">Log Sleep</button>
       </div>`;
   } else if(kind==='growth'){
     html=`
-      <div class="modal-title">Log a measurement</div>
       <div class="modal-sub">Weight, length, and head circumference — leave any blank you don't have.</div>
       <div class="fields">
         <div class="field"><label>Weight (lb)</label>
@@ -2006,11 +2053,16 @@ function renderLogModal(){
           <input type="date" value="${esc(ui.newMeasureDate)}" oninput="setField('newMeasureDate',this.value)"/></div>
       </div>
       <div class="modal-actions">
-        <button class="btn-cancel" onclick="closeLog()">Cancel</button>
+        <button class="btn-cancel" onclick="closeLog()">Done</button>
         <button class="btn-log" onclick="submitLogMeasurement()">Log Measurement</button>
       </div>`;
   }
-  document.getElementById('logModalBody').innerHTML=html;
+  document.getElementById('logModalBody').innerHTML=`
+    <div class="modal-title">Log an entry</div>
+    <div class="chip-row kind-row">
+      ${LOG_KINDS.map(k=>chipHtml(k.label,kind===k.id,'#1A1A2E',`setLogKind('${k.id}')`)).join('')}
+    </div>
+    ${html}`;
   document.getElementById('logModal').classList.add('visible');
 }
 
