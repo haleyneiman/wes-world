@@ -166,6 +166,7 @@ input::placeholder{color:#C7C7DE;}
   margin-bottom:4px;flex-wrap:wrap;gap:8px;}
 .card-sub{font-size:11.5px;color:var(--muted);margin-bottom:16px;}
 .tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;}
+.tiles-4{grid-template-columns:repeat(4,1fr);}
 .tile{background:var(--surface);border-radius:20px;padding:16px;text-align:center;box-shadow:var(--shadow);}
 .tile .v{font-family:'Fraunces',serif;font-size:19px;font-weight:700;color:var(--accent);}
 .tile .k{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-top:4px;}
@@ -242,6 +243,10 @@ input::placeholder{color:#C7C7DE;}
 .growth-panel{background:#EEF3FC;border:1px solid #D7E3F7;border-radius:28px;padding:18px 16px 20px;}
 .growth-chart-wrap{position:relative;width:100%;aspect-ratio:580/230;}
 .growth-chart-wrap svg{position:absolute;inset:0;display:block;overflow:visible;}
+.gc-layer{position:absolute;inset:0;}
+/* pan-y leaves vertical page scrolling to the browser and hands us the
+   horizontal drags and pinches. */
+.gc-touch{position:absolute;inset:0;touch-action:pan-y;cursor:pointer;}
 .gc-ylabel{position:absolute;left:0;transform:translateY(-50%);width:38px;text-align:right;
   font-size:8.5px;color:var(--muted);white-space:nowrap;}
 .gc-xlabel{position:absolute;top:88%;transform:translateX(-50%);font-size:8.5px;color:var(--muted);}
@@ -313,6 +318,7 @@ input::placeholder{color:#C7C7DE;}
 @media(max-width:640px){
   .wes-qs{gap:16px;}
   .tiles{gap:8px;}
+  .tiles-4{grid-template-columns:repeat(2,1fr);}
   .tile{padding:13px 8px;}
   .tile .v{font-size:16px;}
   .week-grid{grid-template-columns:24px repeat(7,1fr);gap:3px;}
@@ -939,7 +945,7 @@ function buildFeedWeek(){
     return {
       day:d.dow,dateKey:d.key,
       markers:feeds.map(f=>({
-        topPct:logHour(f)/24*100,color:feedColor(f.type),
+        hour:logHour(f),topPct:logHour(f)/24*100,color:feedColor(f.type),
         typeLabel:f.type==='breast'?'Breast':'Bottle',
         amt:f.type==='breast'?((f.duration||0)+' min'):((f.amt||0)+' oz'),
         timeLabel:hourLabel(logHour(f)),key:f._key
@@ -947,6 +953,29 @@ function buildFeedWeek(){
       sleepBlocks
     };
   });
+}
+// Day/night boundaries for the feed-interval split, as hours of the day.
+const FEED_DAY_START=7,FEED_NIGHT_START=19;
+// A gap longer than this is a stretch of unlogged feeds rather than a real
+// interval, so it would otherwise inflate the averages.
+const FEED_GAP_MAX_HR=14;
+// Averages the real elapsed time between consecutive feeds, split by whether
+// the gap started in the day or the night window. Feeds are laid out on one
+// continuous hour timeline across the week so gaps span midnight correctly.
+function feedGaps(week){
+  const times=[];
+  week.forEach((d,di)=>d.markers.forEach(m=>times.push(di*24+m.hour)));
+  times.sort((a,b)=>a-b);
+  const day=[],night=[];
+  for(let i=1;i<times.length;i++){
+    const gap=times[i]-times[i-1];
+    if(gap<=0||gap>FEED_GAP_MAX_HR)continue;
+    const startHour=((times[i-1]%24)+24)%24;
+    const isDay=startHour>=FEED_DAY_START&&startHour<FEED_NIGHT_START;
+    (isDay?day:night).push(gap);
+  }
+  const avg=a=>a.length?(a.reduce((x,y)=>x+y,0)/a.length).toFixed(1)+' hr':'—';
+  return {dayText:avg(day),nightText:avg(night)};
 }
 function buildSleepWeek(){
   const days=last7Days();
@@ -1119,23 +1148,21 @@ function buildGrowthChart(logs,mode,valueKey,tables,fmt,axisFmt,viewLo,viewHi){
       ?`${Math.floor(w.gaWeeks)}w ${Math.round((w.gaWeeks-Math.floor(w.gaWeeks))*7)}d GA`
       :`${(+w.corrMonths||0).toFixed(1)}mo corrected`;
     return {cx:xS(x).toFixed(1),cy:yS(w[valueKey]).toFixed(1),
-      tooltip:`${w.date} · ${valueText} · ${pct} percentile`,
       date:w.date,valueText,pct,ageLabel};
   });
-  return {W,H,gridLines,xTicks,curves,valPoints,valDots,
+  return {W,H,padL:P.l,padR:P.r,gridLines,xTicks,curves,valPoints,valDots,
     xAxisLabel:mode==='fenton'?'Gestational age (weeks)':'Corrected age (months)'};
 }
 
-function growthChartHtml(gc){
+function growthChartInner(gc){
   let svg=`<svg viewBox="0 0 ${gc.W} ${gc.H}" width="100%" height="100%" preserveAspectRatio="none">`;
   gc.gridLines.forEach(g=>svg+=`<line x1="44" x2="544" y1="${g.y}" y2="${g.y}" stroke="#E4E9EF" stroke-width="1"/>`);
   gc.xTicks.forEach(t=>svg+=`<line x1="${t.x}" x2="${t.x}" y1="14" y2="196" stroke="#E4E9EF" stroke-width="0.5"/>`);
   gc.curves.forEach(c=>svg+=`<polyline points="${c.points}" fill="none" stroke="${c.stroke}" stroke-width="${c.sw}"${c.dash?` stroke-dasharray="${c.dash}"`:''}/>`);
   if(gc.valPoints)svg+=`<polyline points="${gc.valPoints}" fill="none" stroke="#2F6FED" stroke-width="2.8"/>`;
-  gc.valDots.forEach((d,i)=>{
+  gc.valDots.forEach(d=>{
     const sel=ui.selectedGrowthPoint&&ui.selectedGrowthPoint.date===d.date&&
       ui.selectedGrowthPoint.valueText===d.valueText;
-    svg+=`<circle cx="${d.cx}" cy="${d.cy}" r="9" fill="transparent" style="cursor:pointer" onclick="selectGrowthPoint(${i})"><title>${esc(d.tooltip)}</title></circle>`;
     svg+=`<circle cx="${d.cx}" cy="${d.cy}" r="${sel?7:5}" fill="#2F6FED"${sel?' stroke="#1A1A2E" stroke-width="2"':''} style="pointer-events:none"/>`;
     svg+=`<circle cx="${d.cx}" cy="${d.cy}" r="3" fill="#FFFFFF" style="pointer-events:none"/>`;
   });
@@ -1145,7 +1172,16 @@ function growthChartHtml(gc){
   gc.xTicks.forEach(t=>ov+=`<div class="gc-xlabel" style="left:${t.leftPct}%">${esc(t.label)}</div>`);
   gc.curves.forEach(c=>ov+=`<div class="gc-curve-label" style="left:${c.leftPct}%;top:${c.topPct}%;color:${c.stroke};font-weight:${c.fw}">${esc(c.label)}</div>`);
   ov+=`<div class="gc-axis">${esc(gc.xAxisLabel)}</div>`;
-  return `<div class="growth-chart-wrap">${svg}${ov}</div>`;
+  return svg+ov;
+}
+// The touch layer is a stable sibling of the drawing layer: a pinch redraws only
+// #growthChartLayer, so the element receiving the gesture is never torn out of
+// the DOM mid-touch. It also owns point hit-testing for both tap and click.
+function growthChartHtml(gc){
+  return `<div class="growth-chart-wrap">
+    <div class="gc-layer" id="growthChartLayer">${growthChartInner(gc)}</div>
+    <div class="gc-touch" id="growthChartTouch" onclick="gcSelectNear(event.clientX,event.clientY)"></div>
+  </div>`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1224,6 +1260,7 @@ function loggerName(){
 }
 
 let weekCache={sleep:[],feed:[],growthDots:[],growthRange:null};
+let growthChartCtx=null;
 function selectSleepBlock(di,bi){
   const b=weekCache.sleep[di]&&weekCache.sleep[di].blocks[bi];
   if(!b)return;
@@ -1257,6 +1294,124 @@ function zoomGrowth(dir){
   render();
 }
 function resetGrowthZoom(){ui.growthZoomLo=null;ui.growthZoomHi=null;render();}
+
+// ─── Growth chart pinch-to-zoom / drag-to-pan ────────────────────────────────
+// Two fingers set the x window directly: each finger keeps the age it grabbed,
+// which gives zoom and pan in one gesture. One finger pans at a fixed span.
+// Redraws hit only the drawing layer so the gesture is never interrupted; the
+// window is committed to ui state on touchend.
+let growthGesture=null,growthPendingView=null,growthRaf=0;
+function gcFrac(clientX){
+  const el=document.getElementById('growthChartTouch'),c=growthChartCtx;
+  if(!el||!c)return 0;
+  const r=el.getBoundingClientRect();
+  if(!r.width)return 0;
+  const svgX=((clientX-r.left)/r.width)*c.W;
+  return (svgX-c.padL)/(c.W-c.padL-c.padR);
+}
+function gcAgeAt(frac){const c=growthChartCtx;return c.lo+frac*(c.hi-c.lo);}
+function gcClampView(lo,span){
+  const c=growthChartCtx;
+  span=Math.max(c.minSpan,Math.min(c.fullMax-c.fullMin,span));
+  lo=Math.max(c.fullMin,Math.min(c.fullMax-span,lo));
+  return [lo,lo+span];
+}
+function redrawGrowthChart(lo,hi){
+  const c=growthChartCtx;
+  if(!c)return;
+  const m=GROWTH_METRICS[c.metricKey]||GROWTH_METRICS.weight;
+  const gc=buildGrowthChart(c.logs,c.mode,m.key,m.tables,m.fmt,m.axisFmt,lo,hi);
+  weekCache.growthDots=gc.valDots;
+  const layer=document.getElementById('growthChartLayer');
+  if(layer)layer.innerHTML=growthChartInner(gc);
+  c.lo=lo;c.hi=hi;
+}
+function queueGrowthView(lo,span){
+  growthPendingView=gcClampView(lo,span);
+  if(growthRaf)return;
+  growthRaf=requestAnimationFrame(()=>{
+    growthRaf=0;
+    if(growthPendingView)redrawGrowthChart(growthPendingView[0],growthPendingView[1]);
+  });
+}
+function onGrowthTouchStart(e){
+  if(!growthChartCtx)return;
+  const t=e.touches;
+  if(t.length>=2){
+    const f1=gcFrac(t[0].clientX),f2=gcFrac(t[1].clientX);
+    growthGesture={mode:'pinch',f1,ages:[gcAgeAt(f1),gcAgeAt(f2)],moved:true};
+    e.preventDefault();
+  } else if(t.length===1){
+    const f=gcFrac(t[0].clientX);
+    growthGesture={mode:'pan',age:gcAgeAt(f),span:growthChartCtx.hi-growthChartCtx.lo,
+      startX:t[0].clientX,startY:t[0].clientY,moved:false};
+  }
+}
+function onGrowthTouchMove(e){
+  const g=growthGesture;
+  if(!g||!growthChartCtx)return;
+  const t=e.touches;
+  let lo,span;
+  if(g.mode==='pinch'&&t.length>=2){
+    const f1=gcFrac(t[0].clientX),f2=gcFrac(t[1].clientX);
+    if(Math.abs(f2-f1)<0.02)return;
+    span=(g.ages[1]-g.ages[0])/(f2-f1);
+    lo=g.ages[0]-f1*span;
+  } else if(g.mode==='pan'&&t.length===1){
+    const dx=t[0].clientX-g.startX,dy=t[0].clientY-g.startY;
+    if(!g.moved){
+      if(Math.abs(dx)<8&&Math.abs(dy)<8)return;
+      // A mostly-vertical drag is the user scrolling the page, not panning.
+      if(Math.abs(dy)>Math.abs(dx)){growthGesture=null;return;}
+      g.moved=true;
+    }
+    span=g.span;
+    lo=g.age-gcFrac(t[0].clientX)*span;
+  } else return;
+  e.preventDefault();
+  queueGrowthView(lo,span);
+}
+function onGrowthTouchEnd(e){
+  const g=growthGesture;
+  if(!g)return;
+  if(e.touches.length)return;      // a finger is still down — gesture continues
+  growthGesture=null;
+  if(growthRaf){cancelAnimationFrame(growthRaf);growthRaf=0;}
+  if(growthPendingView){
+    redrawGrowthChart(growthPendingView[0],growthPendingView[1]);
+    growthPendingView=null;
+  }
+  if(g.mode==='pan'&&!g.moved){
+    const tc=e.changedTouches&&e.changedTouches[0];
+    if(tc)gcSelectNear(tc.clientX,tc.clientY);
+    return;
+  }
+  ui.growthZoomLo=growthChartCtx.lo;
+  ui.growthZoomHi=growthChartCtx.hi;
+  render();
+}
+function gcSelectNear(clientX,clientY){
+  const el=document.getElementById('growthChartTouch'),c=growthChartCtx;
+  if(!el||!c)return;
+  const r=el.getBoundingClientRect();
+  if(!r.width||!r.height)return;
+  let best=-1,bestDist=Infinity;
+  weekCache.growthDots.forEach((d,i)=>{
+    const dist=Math.hypot(clientX-(r.left+(+d.cx/c.W)*r.width),
+      clientY-(r.top+(+d.cy/c.H)*r.height));
+    if(dist<bestDist){bestDist=dist;best=i;}
+  });
+  if(best>=0&&bestDist<=26)selectGrowthPoint(best);
+}
+// Re-attached after every render, since render() replaces the whole page body.
+function initGrowthGestures(){
+  const el=document.getElementById('growthChartTouch');
+  if(!el)return;
+  el.addEventListener('touchstart',onGrowthTouchStart,{passive:false});
+  el.addEventListener('touchmove',onGrowthTouchMove,{passive:false});
+  el.addEventListener('touchend',onGrowthTouchEnd);
+  el.addEventListener('touchcancel',onGrowthTouchEnd);
+}
 // The selected point belongs to the old metric, so drop it when switching.
 function setGrowthMetric(k){ui.growthMetric=k;ui.selectedGrowthPoint=null;render();}
 function feedLogPageBy(n){ui.feedLogPage=Math.max(0,(ui.feedLogPage||0)+n);render();}
@@ -1269,6 +1424,7 @@ function chipHtml(label,active,color,onclick,sm){
 
 function render(){
   if(!firebaseReady)return;
+  growthChartCtx=null;   // only the growth tab re-populates this
   const ages=getAges();
   const corrMonths=ages.corrWeeks/4.33;
   const chronoMonths=(ages.chronoWeeks*7+ages.chronoRemDays)/30.44;
@@ -1298,7 +1454,7 @@ function render(){
     const nowPct=nowTopPct();
     const totalFeeds=week.reduce((a,d)=>a+d.markers.length,0);
     const perDay=(totalFeeds/7).toFixed(1);
-    const interval=totalFeeds?(24/(totalFeeds/7)).toFixed(1)+' hr':'—';
+    const gaps=feedGaps(week);
 
     html+=`
     <div class="section-head">
@@ -1306,11 +1462,14 @@ function render(){
       <button class="btn-log" onclick="openLogFeed()">+ Log Feed</button>
     </div>
 
-    <div class="tiles">
+    <div class="tiles tiles-4">
       <div class="tile"><div class="v">${perDay}</div><div class="k">Feeds / day</div></div>
-      <div class="tile"><div class="v">${interval}</div><div class="k">Avg interval</div></div>
+      <div class="tile"><div class="v">${gaps.dayText}</div><div class="k">Avg day interval</div></div>
+      <div class="tile"><div class="v">${gaps.nightText}</div><div class="k">Avg night interval</div></div>
       <div class="tile"><div class="v">${totalFeeds}</div><div class="k">This week</div></div>
     </div>
+    <div class="section-sub" style="margin-top:-6px">Day ${hourLabel(FEED_DAY_START)} – ${hourLabel(FEED_NIGHT_START)},
+      night ${hourLabel(FEED_NIGHT_START)} – ${hourLabel(FEED_DAY_START)}, measured between consecutive feeds.</div>
 
     <div class="card card-tight">
       <div class="card-head">
@@ -1439,6 +1598,10 @@ function render(){
     const canZoomOut=viewLo>fullMin+1e-6||viewHi<fullMax-1e-6;
     const gc=buildGrowthChart(logs,chartMode,metric.key,metric.tables,metric.fmt,metric.axisFmt,viewLo,viewHi);
     weekCache.growthDots=gc.valDots;
+    // Everything a pinch needs to redraw the chart without a full re-render.
+    growthChartCtx={W:gc.W,H:gc.H,padL:gc.padL,padR:gc.padR,lo:viewLo,hi:viewHi,
+      fullMin,fullMax,minSpan:chartMode==='fenton'?2:1,mode:chartMode,
+      metricKey:ui.growthMetric,logs};
     const src=chartMode==='fenton'?metric.tables.fenton:metric.tables.who;
     const srcKeys=Object.keys(src).map(Number).sort((a,b)=>a-b);
     const withVal=logs.filter(w=>w[metric.key]!=null&&!isNaN(w[metric.key]));
@@ -1484,13 +1647,14 @@ function render(){
             <button class="btn-zoom" ${canZoomIn?'':'disabled'} onclick="zoomGrowth(1)">+</button>
             <button class="chip-sm" onclick="resetGrowthZoom()">Fit to data</button>
             ${chipHtml('Corrected',ui.growthMode==='corrected','#12B886',"setUI('growthMode','corrected')",true)}
-            ${chipHtml('Gestational',ui.growthMode==='gestational','#12B886',"setUI('growthMode','gestational')",true)}
+            ${chipHtml('Preemie',ui.growthMode==='gestational','#12B886',"setUI('growthMode','gestational')",true)}
           </div>
         </div>
         <div class="card-sub" style="margin-bottom:8px">${chartMode==='fenton'
           ?`Fenton preterm growth curve (percentiles by gestational age) — ${metric.sourceName}`
           :`WHO growth curve (percentiles by corrected age) — ${metric.sourceName}`}</div>
-        <div class="card-hint">Tap a point to see its date, age, value, and percentile</div>
+        <div class="card-hint">Tap a point for its date, age, value, and percentile ·
+          pinch or drag the chart to zoom the age range</div>
         ${ui.selectedGrowthPoint?`<div class="sel-block">
           <span class="sel-dot" style="background:#2F6FED"></span>
           <span>${esc(ui.selectedGrowthPoint.date)} · ${esc(ui.selectedGrowthPoint.ageLabel)} · ${esc(ui.selectedGrowthPoint.valueText)} · ${esc(ui.selectedGrowthPoint.pct)} percentile</span>
@@ -1507,7 +1671,7 @@ function render(){
           <div class="card-title">Measurement log</div>
           <div class="chip-row-sm">
             ${chipHtml('Corrected',ui.growthMode==='corrected','#12B886',"setUI('growthMode','corrected')",true)}
-            ${chipHtml('Gestational',ui.growthMode==='gestational','#12B886',"setUI('growthMode','gestational')",true)}
+            ${chipHtml('Preemie',ui.growthMode==='gestational','#12B886',"setUI('growthMode','gestational')",true)}
           </div>
         </div>
         <div class="scroll-log">
@@ -1747,6 +1911,7 @@ function render(){
   }
 
   document.getElementById('pageContent').innerHTML=html;
+  initGrowthGestures();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
