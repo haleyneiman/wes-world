@@ -20,7 +20,7 @@
   --ink:#1A1A2E;--ink-mid:#55556E;--muted:#7C8798;
   --accent:#2F6FED;--accent-dark:#1E4FC0;--accent-soft:#E3ECFA;
   --green:#12B886;--green-soft:#D6F5EF;
-  --cyan:#06B6D4;--slate:#64748B;--orange:#F97316;--gold:#F5B301;
+  --cyan:#06B6D4;--slate:#64748B;--orange:#F97316;--gold:#F5B301;--violet:#8B5CF6;
   --red:#FF3B3B;--amber:#FFB627;
   --shadow:0 1px 2px rgba(26,26,46,.04),0 10px 30px -14px rgba(26,26,46,.08);
   --shadow-lg:0 1px 2px rgba(26,26,46,.04),0 24px 60px -20px rgba(26,26,46,.18);
@@ -902,7 +902,9 @@ function sleepSpans(s){
   return [[a,24],[0,b]];
 }
 function feedColor(type){return type==='breast'?'#06B6D4':'#2F6FED';}
-function sleepColor(type){return type==='nap'?'#64748B':'#06B6D4';}
+// Night uses violet rather than cyan — cyan is already Breast's feed color,
+// and the two collide wherever a chart overlays sleep on top of feeds.
+function sleepColor(type){return type==='nap'?'#64748B':'#8B5CF6';}
 
 function buildFeedWeek(){
   const days=last7Days();
@@ -1303,7 +1305,10 @@ function render(){
         <button class="btn-edit" onclick="openEditFeed('${ui.selectedFeedMarker.key}')">Edit</button>
       </div>`:''}
       <div class="week-grid">
-        <div class="week-hours">${hourGutterHtml(nowPct)}</div>
+        <div>
+          <div class="week-day-label" aria-hidden="true" style="visibility:hidden">&nbsp;<br><span class="week-date">&nbsp;</span></div>
+          <div class="week-hours">${hourGutterHtml(nowPct)}</div>
+        </div>
         ${week.map((d,di)=>`
           <div>
             <div class="week-day-label">${d.day}<br><span class="week-date">${esc(d.dateKey)}</span></div>
@@ -1322,7 +1327,7 @@ function render(){
         <span><i style="background:#2F6FED"></i>Bottle</span>
         <span><i style="background:#06B6D4"></i>Breast</span>
         ${ui.showSleepOverlay?`<span><i class="sq" style="background:#64748B;opacity:.6"></i>Nap</span>
-        <span><i class="sq" style="background:#06B6D4;opacity:.6"></i>Night sleep</span>`:''}
+        <span><i class="sq" style="background:#8B5CF6;opacity:.6"></i>Night sleep</span>`:''}
       </div>
     </div>`;
 
@@ -1530,7 +1535,7 @@ function render(){
 
     <div class="tiles">
       <div class="tile"><div class="v" style="color:#64748B">${napToday}</div><div class="k">Naps today</div></div>
-      <div class="tile"><div class="v" style="color:#06B6D4">${hm(longestNight)}</div><div class="k">Longest night stretch</div></div>
+      <div class="tile"><div class="v" style="color:#8B5CF6">${hm(longestNight)}</div><div class="k">Longest night stretch</div></div>
       <div class="tile"><div class="v" style="color:var(--ink)">${hm(avgNap)}</div><div class="k">Avg nap length</div></div>
     </div>
 
@@ -1545,7 +1550,10 @@ function render(){
         ${sel.key?`<button class="btn-edit" onclick="openEditSleep('${sel.key}')">Edit</button>`:''}
       </div>`:''}
       <div class="week-grid">
-        <div class="week-hours">${hourGutterHtml(nowPct)}</div>
+        <div>
+          <div class="week-day-label" aria-hidden="true" style="visibility:hidden">&nbsp;<br><span class="week-date">&nbsp;</span></div>
+          <div class="week-hours">${hourGutterHtml(nowPct)}</div>
+        </div>
         ${week.map((d,di)=>`
           <div>
             <div class="week-day-label">${d.day}<br><span class="week-date">${esc(d.dateKey)}</span></div>
@@ -1560,7 +1568,7 @@ function render(){
       </div>
       <div class="legend">
         <span><i style="background:#64748B"></i>Nap</span>
-        <span><i style="background:#06B6D4"></i>Night</span>
+        <span><i style="background:#8B5CF6"></i>Night</span>
         ${ui.showFeedOverlay?`<span><i style="background:#F97316"></i>Bottle</span>
         <span><i style="background:#F5B301"></i>Breast</span>`:''}
       </div>
@@ -1585,17 +1593,17 @@ function render(){
       <div class="trend">
         ${bars.map(b=>`
           <div class="trend-col">
-            <div class="trend-vals"><span style="color:#64748B">${b.nap?b.nap.toFixed(1)+'h':''}</span><span style="color:#06B6D4">${b.night?b.night.toFixed(1)+'h':''}</span></div>
+            <div class="trend-vals"><span style="color:#64748B">${b.nap?b.nap.toFixed(1)+'h':''}</span><span style="color:#8B5CF6">${b.night?b.night.toFixed(1)+'h':''}</span></div>
             <div class="trend-bars">
               <div class="trend-bar" style="height:${pctClamp(b.nap,maxSleep)}%;background:#64748B"></div>
-              <div class="trend-bar" style="height:${pctClamp(b.night,maxSleep)}%;background:#06B6D4"></div>
+              <div class="trend-bar" style="height:${pctClamp(b.night,maxSleep)}%;background:#8B5CF6"></div>
             </div>
             <div class="trend-day">${b.day}<br><span class="week-date">${esc(b.dateLabel)}</span></div>
           </div>`).join('')}
       </div>
       <div class="legend" style="margin-top:12px">
         <span><i style="background:#64748B"></i>Nap</span>
-        <span><i style="background:#06B6D4"></i>Night</span>
+        <span><i style="background:#8B5CF6"></i>Night</span>
       </div>
     </div>
 
@@ -1607,7 +1615,7 @@ function render(){
           <div class="trend-col">
             <div class="trend-vals"><span>${b.hours?b.hours.toFixed(1)+'h':''}</span></div>
             <div class="trend-bars">
-              <div class="trend-bar" style="width:18px;height:${pctClamp(b.hours,maxStretch)}%;background:#06B6D4"></div>
+              <div class="trend-bar" style="width:18px;height:${pctClamp(b.hours,maxStretch)}%;background:#8B5CF6"></div>
             </div>
             <div class="trend-day">${b.day}<br><span class="week-date">${esc(b.dateLabel)}</span></div>
           </div>`).join('')}
@@ -1618,7 +1626,10 @@ function render(){
       <div class="card-title" style="margin-bottom:4px">Night Wakings</div>
       <div class="card-sub" style="margin-bottom:16px">${totalWakings} waking${totalWakings===1?'':'s'} this week · ${(totalWakings/7).toFixed(1)} avg per night</div>
       <div class="week-grid">
-        <div class="week-hours" style="height:160px">${NIGHT_HOUR_LABELS.map(h=>`<div class="week-hour" style="top:${h.topPct}%">${h.label}</div>`).join('')}</div>
+        <div>
+          <div class="week-day-label" aria-hidden="true" style="visibility:hidden">&nbsp;<br><span class="week-date">&nbsp;</span></div>
+          <div class="week-hours" style="height:160px">${NIGHT_HOUR_LABELS.map(h=>`<div class="week-hour" style="top:${h.topPct}%">${h.label}</div>`).join('')}</div>
+        </div>
         ${wakings.map(d=>`
           <div>
             <div class="week-day-label">${d.day}<br><span class="week-date">${esc(d.dateLabel)}</span></div>
