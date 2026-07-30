@@ -21,7 +21,7 @@
   --accent:#2F6FED;--accent-dark:#1E4FC0;--accent-soft:#E3ECFA;
   --green:#12B886;--green-soft:#D6F5EF;
   --cyan:#06B6D4;--slate:#64748B;--orange:#F97316;--gold:#F5B301;--violet:#8B5CF6;
-  --red:#FF3B3B;--amber:#FFB627;
+  --red:#FF3B3B;--amber:#FFB627;--amber-soft:#FFF4DB;
   --shadow:0 1px 2px rgba(26,26,46,.04),0 10px 30px -14px rgba(26,26,46,.08);
   --shadow-lg:0 1px 2px rgba(26,26,46,.04),0 24px 60px -20px rgba(26,26,46,.18);
 }
@@ -253,8 +253,8 @@ input::placeholder{color:#C7C7DE;}
 
 /* GROWTH PANEL */
 .growth-panel{background:#EEF3FC;border:1px solid #D7E3F7;border-radius:28px;padding:18px 16px 20px;}
-.growth-chart-wrap{position:relative;width:100%;aspect-ratio:580/230;}
-.growth-chart-wrap svg{position:absolute;inset:0;display:block;overflow:visible;}
+.growth-chart-wrap,.scatter-wrap{position:relative;width:100%;aspect-ratio:580/230;}
+.growth-chart-wrap svg,.scatter-wrap svg{position:absolute;inset:0;display:block;overflow:visible;}
 .gc-layer{position:absolute;inset:0;}
 /* pan-y leaves vertical page scrolling to the browser and hands us the
    horizontal drags and pinches. */
@@ -264,6 +264,29 @@ input::placeholder{color:#C7C7DE;}
 .gc-xlabel{position:absolute;top:88%;transform:translateX(-50%);font-size:8.5px;color:var(--muted);}
 .gc-curve-label{position:absolute;font-size:7.5px;white-space:nowrap;}
 .gc-axis{position:absolute;left:50%;bottom:0;transform:translateX(-50%);font-size:8.5px;color:var(--muted);}
+/* FACTOR RANKING — one row per daytime factor, tap to chart it */
+.fac-row{display:flex;align-items:center;gap:10px;width:100%;text-align:left;
+  padding:10px 12px;border-radius:14px;border:1.5px solid transparent;
+  background:var(--sunk);cursor:pointer;margin-bottom:6px;
+  font-family:'DM Sans',sans-serif;-webkit-appearance:none;}
+.fac-row.active{border-color:var(--ink);background:var(--surface);box-shadow:var(--shadow);}
+.fac-main{flex:1;min-width:0;}
+.fac-name{font-size:12.5px;font-weight:600;color:var(--ink);}
+.fac-effect{font-size:10.5px;color:var(--muted);margin-top:2px;line-height:1.45;}
+/* Signed strength: a zero line with the bar growing left (less sleep) or
+   right (more sleep) — direction is labelled too, never colour alone. */
+.fac-meter{position:relative;width:56px;height:20px;flex-shrink:0;
+  border-left:1px solid var(--border);border-right:1px solid var(--border);}
+.fac-meter::before{content:'';position:absolute;left:50%;top:0;bottom:0;
+  width:1px;background:var(--border);}
+.fac-bar{position:absolute;top:6px;height:8px;border-radius:4px;}
+.fac-tag{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;
+  flex-shrink:0;width:34px;text-align:right;}
+.fac-tag.pos{color:var(--green);}
+.fac-tag.neg{color:var(--orange);}
+.fac-tag.muted{color:var(--muted);font-weight:600;}
+.analytics-note{font-size:10.5px;color:var(--muted);line-height:1.6;margin-top:12px;
+  padding-top:12px;border-top:1px solid var(--border-soft);}
 .gc-legend{display:flex;flex-wrap:wrap;gap:10px 14px;margin-top:10px;}
 .gc-legend span{display:flex;align-items:center;gap:5px;font-size:10.5px;color:var(--muted);}
 .gc-legend i{display:inline-block;width:14px;height:2.5px;border-radius:2px;font-style:normal;}
@@ -685,6 +708,7 @@ let ui = {
   showFeedOverlay: false, showSleepOverlay: false,
   growthZoomLo: null, growthZoomHi: null,
   feedLogPage: 0,
+  sleepWindowDays: 14, sleepFactor: 'bedtime', selectedSleepNight: null,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -892,14 +916,15 @@ function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;',
 // ─────────────────────────────────────────────────────────────────────────────
 const DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 function dateKeyFor(d){return MONTHS[d.getMonth()]+' '+d.getDate();}
-function last7Days(){
+function lastNDays(n){
   const out=[],now=new Date();
-  for(let i=6;i>=0;i--){
+  for(let i=n-1;i>=0;i--){
     const d=new Date(now);d.setDate(now.getDate()-i);
     out.push({key:dateKeyFor(d),dow:DOW[d.getDay()],date:d});
   }
   return out;
 }
+function last7Days(){return lastNDays(7);}
 // Hour-of-day for a log. The `time` label is the authoritative entered time —
 // seeded rows share one `ts` per day, so trusting `ts` first collapses them.
 function logHour(l){
@@ -1011,6 +1036,172 @@ function buildSleepWeek(){
     feedMarkers:feedsForDay(d,true)
   }));
 }
+// ─────────────────────────────────────────────────────────────────────────────
+// SLEEP ANALYTICS — which daytime factors track with that night's sleep
+//
+// Grounded in infant sleep research, with Wesley's CORRECTED age as the
+// reference (corrected age is the standard metric for preterm development):
+//  • Sleep onset time is the best-evidenced lever. In 6–24-week-olds measured
+//    by actigraphy, each hour earlier bedtime went with ~34 min more nighttime
+//    sleep *within the same infant* — which is exactly the comparison this app
+//    can make, one baby against their own average.
+//  • Total daytime sleep is NOT reliably "sleep begets sleep". In toddlers and
+//    in 6–12-month-olds longer daytime sleep tracked with SHORTER, more broken
+//    nights. The direction genuinely varies, so this measures Wesley's own
+//    direction rather than assuming one.
+//  • Late-afternoon naps tracked with shorter, later-starting nights, so last
+//    nap end and the wake window before bed are both worth watching. ("Wake
+//    windows" are a derived idea, not a directly studied one — hence shown as
+//    an observation, not a rule.)
+//  • Feeding: daytime intake matters more than feed count, and being fed to
+//    sleep at bedtime tracked with shorter nights at 6 and 15 weeks — so the
+//    gap between the last feed and sleep onset is the informative version of
+//    "time of last feed".
+// ─────────────────────────────────────────────────────────────────────────────
+const SLEEP_WINDOWS=[14,21,28];
+// Pairs each day's daytime factors with the night that began that evening. A
+// night is filed under the day it started, and a post-midnight stretch logged
+// on the following date still belongs to the night before it.
+function buildSleepNights(days){
+  const on=(list,k)=>list.filter(e=>e.date===k);
+  return days.map(d=>{
+    const nextKey=dateKeyFor(new Date(d.date.getTime()+864e5));
+    // Hours-since-noon puts a 9pm and a 12:30am bedtime on one rising scale.
+    const onsets=[];let nightSleep=0;
+    on(shared.sleepLogs,d.key).forEach(s=>{
+      if(s.type!=='night')return;
+      const h=hhmmToHours(s.start);
+      if(h==null||h<12)return;
+      onsets.push(h-12);nightSleep+=+s.hours||0;
+    });
+    on(shared.sleepLogs,nextKey).forEach(s=>{
+      if(s.type!=='night')return;
+      const h=hhmmToHours(s.start);
+      if(h==null||h>=12)return;
+      onsets.push(h+12);nightSleep+=+s.hours||0;
+    });
+    const naps=on(shared.sleepLogs,d.key).filter(s=>s.type==='nap');
+    const feeds=on(shared.feedLogs,d.key).filter(f=>logHour(f)>=6);
+    const napEnds=naps.map(s=>hhmmToHours(s.end)).filter(v=>v!=null);
+    const bedtime=onsets.length?Math.min(...onsets):null;
+    const lastNapEnd=napEnds.length?Math.max(...napEnds):null;
+    const lastFeed=feeds.length?Math.max(...feeds.map(logHour)):null;
+    // A gap only makes sense if the event really preceded bedtime; anything
+    // outside a plausible range is a data-entry artifact, not a signal.
+    const gap=(from)=>{
+      if(bedtime==null||from==null)return null;
+      const g=bedtime+12-from;
+      return (g>0&&g<12)?g:null;
+    };
+    return {
+      dateKey:d.key,day:d.dow,
+      nightSleep:nightSleep>0?nightSleep:null,
+      bedtime,
+      // No naps on a day that was otherwise tracked is real data (zero), but an
+      // untracked day is missing data, not a zero.
+      napHours:naps.length?naps.reduce((a,s)=>a+(+s.hours||0),0):(feeds.length?0:null),
+      napCount:naps.length||(feeds.length?0:null),
+      lastNapEnd,
+      wakeWindow:gap(lastNapEnd),
+      feedCount:feeds.length||null,
+      dayOz:feeds.length?Math.round(feeds.filter(f=>f.type!=='breast')
+        .reduce((a,f)=>a+(+f.amt||0),0)*10)/10:null,
+      lastFeed,
+      lastFeedGap:gap(lastFeed)
+    };
+  });
+}
+function signedMins(hours){
+  const m=Math.round(hours*60);
+  return (m>=0?'+':'−')+Math.abs(m)+' min';
+}
+// Axis ticks need to stay short so they never wrap: "9p", "5:30p".
+function shortHourLabel(h){
+  const norm=((h%24)+24)%24,hh=Math.floor(norm),mm=Math.round((norm-hh)*60);
+  const ap=hh<12?'a':'p';let h12=hh%12;if(h12===0)h12=12;
+  return mm?`${h12}:${String(mm).padStart(2,'0')}${ap}`:`${h12}${ap}`;
+}
+// Each factor reports its effect per its own natural unit, phrased in the
+// direction a parent would act on.
+const SLEEP_FACTORS=[
+  {id:'bedtime',label:'Bedtime',axis:'Bedtime',
+   get:r=>r.bedtime,fmt:v=>hourLabel(v+12),axisFmt:v=>shortHourLabel(v+12),
+   // Slope is per hour LATER; parents act on "earlier", so this factor is
+   // phrased against the clock and `flip` keeps the bar and tag pointing the
+   // same way as the sentence.
+   flip:true,
+   phrase:s=>`${signedMins(-s)} of night sleep per hour earlier`,
+   note:'Best-evidenced lever at this age — ~34 min more night sleep per hour earlier in 6–24-week-olds.'},
+  {id:'napHours',label:'Total nap hours',axis:'Daytime naps (hr)',
+   get:r=>r.napHours,fmt:v=>v.toFixed(1)+' hr',axisFmt:v=>v.toFixed(1),
+   phrase:s=>`${signedMins(s)} of night sleep per extra hour of naps`,
+   note:'Direction varies by baby — research finds longer daytime sleep often means shorter nights, not longer.'},
+  {id:'lastNapEnd',label:'Last nap ends',axis:'Last nap ends',
+   get:r=>r.lastNapEnd,fmt:v=>hourLabel(v),axisFmt:shortHourLabel,
+   phrase:s=>`${signedMins(s)} of night sleep per hour later`,
+   note:'Late-afternoon naps tracked with shorter, later-starting nights in the nap research.'},
+  {id:'wakeWindow',label:'Awake before bed',axis:'Last nap → bedtime (hr)',
+   get:r=>r.wakeWindow,fmt:v=>v.toFixed(1)+' hr',axisFmt:v=>v.toFixed(1),
+   phrase:s=>`${signedMins(s)} of night sleep per extra hour awake`,
+   note:'Too short and bedtime acts like a nap; too long and overtiredness breaks the night.'},
+  {id:'lastFeedGap',label:'Last feed → bedtime',axis:'Last feed → bedtime (hr)',
+   get:r=>r.lastFeedGap,fmt:v=>v.toFixed(1)+' hr',axisFmt:v=>v.toFixed(1),
+   phrase:s=>`${signedMins(s)} of night sleep per extra hour of gap`,
+   note:'Infants not fed to sleep had longer nights at 6 and 15 weeks, so this gap is the useful read on the last feed.'},
+  {id:'lastFeed',label:'Time of last feed',axis:'Last feed',
+   get:r=>r.lastFeed,fmt:v=>hourLabel(v),axisFmt:shortHourLabel,
+   phrase:s=>`${signedMins(s)} of night sleep per hour later`,
+   note:'Raw clock time of the last daytime feed, as asked — the gap above usually reads cleaner.'},
+  {id:'dayOz',label:'Daytime bottle oz',axis:'Daytime bottle (oz)',
+   get:r=>r.dayOz,fmt:v=>v.toFixed(1)+' oz',axisFmt:v=>v.toFixed(0),
+   phrase:s=>`${signedMins(s)} of night sleep per extra ounce`,
+   note:'Daytime intake is the better-supported feeding measure; short sleepers make up calories overnight.'},
+  {id:'feedCount',label:'Feeds that day',axis:'Feeds that day',
+   get:r=>r.feedCount,fmt:v=>Math.round(v)+' feeds',axisFmt:v=>String(Math.round(v)),
+   phrase:s=>`${signedMins(s)} of night sleep per extra feed`,
+   note:'Count is a rougher proxy than volume — a day of small feeds counts the same as full ones.'},
+];
+function sleepFactorById(id){return SLEEP_FACTORS.find(f=>f.id===id)||SLEEP_FACTORS[0];}
+// Least-squares fit plus Pearson r, on the nights where both values exist.
+function fitFactor(nights,factor){
+  const pts=[];
+  nights.forEach(r=>{
+    const x=factor.get(r);
+    if(x==null||isNaN(x)||r.nightSleep==null)return;
+    pts.push({x,y:r.nightSleep,dateKey:r.dateKey,day:r.day});
+  });
+  const n=pts.length;
+  if(n<4)return {n,pts,r:null,slope:null};
+  const mx=pts.reduce((a,p)=>a+p.x,0)/n,my=pts.reduce((a,p)=>a+p.y,0)/n;
+  let sxx=0,syy=0,sxy=0;
+  pts.forEach(p=>{const dx=p.x-mx,dy=p.y-my;sxx+=dx*dx;syy+=dy*dy;sxy+=dx*dy;});
+  if(sxx<=0||syy<=0)return {n,pts,r:null,slope:null};
+  return {n,pts,r:sxy/Math.sqrt(sxx*syy),slope:sxy/sxx,mx,my};
+}
+// Critical |r| for p<.05 two-tailed by degrees of freedom. Below this the
+// pattern is not distinguishable from chance at this many nights, which matters
+// a lot when a fortnight is only ~14 points.
+const CRIT_R={2:.950,3:.878,4:.811,5:.754,6:.707,7:.666,8:.632,9:.602,10:.576,
+  11:.553,12:.532,13:.514,14:.497,15:.482,16:.468,17:.456,18:.444,19:.433,
+  20:.423,21:.413,22:.404,23:.396,24:.388,25:.381,26:.374};
+function critR(df){
+  if(df<2)return 1;
+  return CRIT_R[df]!=null?CRIT_R[df]:.374*Math.sqrt(26/df);
+}
+function factorVerdict(fit){
+  if(fit.r==null)return {label:'Not enough nights',strong:false};
+  const solid=Math.abs(fit.r)>=critR(fit.n-2);
+  const mag=Math.abs(fit.r);
+  const strength=mag>=.7?'Strong':mag>=.5?'Moderate':mag>=.3?'Weak':'Very weak';
+  return {label:solid?strength+' signal':strength+', not yet clear',strong:solid};
+}
+// Sign of the effect AS PHRASED, so the bar, the arrow, and the sentence agree
+// even for a factor like bedtime that reads against the clock.
+function factorEffectSign(f,fit){
+  if(fit.r==null)return 0;
+  return fit.r*(f.flip?-1:1);
+}
+
 // Every 2 hours across the 24h axis.
 const HOUR_LABELS=Array.from({length:13},(_,i)=>{
   const h=i*2;
@@ -1201,6 +1392,64 @@ function growthChartHtml(gc){
   </div>`;
 }
 
+// One night per dot: the daytime factor on x, that night's sleep on y, with a
+// least-squares trend line. Single series, so the card title carries identity
+// and no legend is needed.
+function buildScatter(fit,factor){
+  const P={l:44,r:18,t:14,b:34},W=580,H=230;
+  const iW=W-P.l-P.r,iH=H-P.t-P.b;
+  const xs=fit.pts.map(p=>p.x),ys=fit.pts.map(p=>p.y);
+  let xLo=Math.min(...xs),xHi=Math.max(...xs);
+  let yLo=Math.min(...ys),yHi=Math.max(...ys);
+  const xPad=(xHi-xLo)*0.1||0.5,yPad=(yHi-yLo)*0.15||0.5;
+  xLo-=xPad;xHi+=xPad;yLo=Math.max(0,yLo-yPad);yHi+=yPad;
+  const xS=v=>P.l+((v-xLo)/(xHi-xLo))*iW;
+  const yS=v=>P.t+iH-((v-yLo)/(yHi-yLo))*iH;
+  const gridLines=[];
+  for(let i=0;i<=4;i++){
+    const v=yLo+(i/4)*(yHi-yLo),y=yS(v);
+    gridLines.push({y:y.toFixed(1),topPct:(y/H*100).toFixed(1),label:v.toFixed(1)+'h'});
+  }
+  const axisFmt=factor.axisFmt||factor.fmt;
+  const xTicks=[];
+  for(let i=0;i<=3;i++){
+    const v=xLo+(i/3)*(xHi-xLo),x=xS(v);
+    xTicks.push({x:x.toFixed(1),leftPct:(x/W*100).toFixed(1),label:axisFmt(v)});
+  }
+  const dots=fit.pts.map(p=>({cx:xS(p.x).toFixed(1),cy:yS(p.y).toFixed(1),
+    dateKey:p.dateKey,day:p.day,x:p.x,y:p.y}));
+  // Trend only where a fit exists; drawn across the padded span.
+  let trend=null;
+  if(fit.slope!=null){
+    const at=v=>fit.my+fit.slope*(v-fit.mx);
+    const y1=at(xLo),y2=at(xHi);
+    const clamp=v=>Math.max(yLo,Math.min(yHi,v));
+    trend={x1:xS(xLo).toFixed(1),y1:yS(clamp(y1)).toFixed(1),
+      x2:xS(xHi).toFixed(1),y2:yS(clamp(y2)).toFixed(1)};
+  }
+  return {W,H,gridLines,xTicks,dots,trend,xAxisLabel:factor.axis,plotL:P.l,plotR:W-P.r};
+}
+function scatterChartHtml(sc){
+  let svg=`<svg viewBox="0 0 ${sc.W} ${sc.H}" width="100%" height="100%" preserveAspectRatio="none">`;
+  sc.gridLines.forEach(g=>svg+=`<line x1="${sc.plotL}" x2="${sc.plotR}" y1="${g.y}" y2="${g.y}" stroke="#E4E9EF" stroke-width="1"/>`);
+  sc.xTicks.forEach(t=>svg+=`<line x1="${t.x}" x2="${t.x}" y1="14" y2="196" stroke="#E4E9EF" stroke-width="0.5"/>`);
+  if(sc.trend)svg+=`<line x1="${sc.trend.x1}" y1="${sc.trend.y1}" x2="${sc.trend.x2}" y2="${sc.trend.y2}" stroke="#1A1A2E" stroke-width="2" stroke-dasharray="6 4" opacity=".55"/>`;
+  sc.dots.forEach(d=>{
+    const sel=ui.selectedSleepNight===d.dateKey;
+    svg+=`<circle cx="${d.cx}" cy="${d.cy}" r="${sel?7:5}" fill="#8B5CF6" stroke="#fff" stroke-width="2" style="pointer-events:none"/>`;
+    if(sel)svg+=`<circle cx="${d.cx}" cy="${d.cy}" r="9.5" fill="none" stroke="#1A1A2E" stroke-width="2" style="pointer-events:none"/>`;
+  });
+  svg+='</svg>';
+  let ov='';
+  sc.gridLines.forEach(g=>ov+=`<div class="gc-ylabel" style="top:${g.topPct}%">${esc(g.label)}</div>`);
+  sc.xTicks.forEach(t=>ov+=`<div class="gc-xlabel" style="left:${t.leftPct}%">${esc(t.label)}</div>`);
+  ov+=`<div class="gc-axis">${esc(sc.xAxisLabel)}</div>`;
+  return `<div class="scatter-wrap">
+    <div class="gc-layer">${svg}${ov}</div>
+    <div class="gc-touch" id="scatterTouch" onclick="scatterSelectNear(event.clientX,event.clientY)"></div>
+  </div>`;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // STATIC DATA
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1276,8 +1525,26 @@ function loggerName(){
   return 'Someone';
 }
 
-let weekCache={sleep:[],feed:[],growthDots:[],growthRange:null};
+let weekCache={sleep:[],feed:[],growthDots:[],growthRange:null,scatter:null};
 let growthChartCtx=null;
+// Tap a night on the scatter, same idea as the other charts.
+function scatterSelectNear(clientX,clientY){
+  const el=document.getElementById('scatterTouch'),sc=weekCache.scatter;
+  if(!el||!sc)return;
+  const r=el.getBoundingClientRect();
+  if(!r.width||!r.height)return;
+  let best=null,bestDist=Infinity;
+  sc.dots.forEach(d=>{
+    const dist=Math.hypot(clientX-(r.left+(+d.cx/sc.W)*r.width),
+      clientY-(r.top+(+d.cy/sc.H)*r.height));
+    if(dist<bestDist){bestDist=dist;best=d;}
+  });
+  if(!best||bestDist>26)return;
+  ui.selectedSleepNight=ui.selectedSleepNight===best.dateKey?null:best.dateKey;
+  render();
+}
+function setSleepFactor(id){ui.sleepFactor=id;ui.selectedSleepNight=null;render();}
+function setSleepWindow(n){ui.sleepWindowDays=n;ui.selectedSleepNight=null;render();}
 // `src` is which chart was tapped ('feed' or 'sleep'); each holds its own
 // entries plus the other kind as an overlay, so both are selectable from either.
 function selectSleepBlock(src,di,bi){
@@ -1800,6 +2067,79 @@ function render(){
         ${ui.showFeedOverlay?`<span><i style="background:#F97316"></i>Bottle</span>
         <span><i style="background:#F5B301"></i>Breast</span>`:''}
       </div>
+    </div>`;
+
+    // ── What's driving overnight sleep
+    const sleepNights=buildSleepNights(lastNDays(ui.sleepWindowDays));
+    const factor=sleepFactorById(ui.sleepFactor);
+    const ranked=SLEEP_FACTORS.map(f=>{
+      const fit=fitFactor(sleepNights,f);
+      return {f,fit,verdict:factorVerdict(fit),mag:fit.r==null?-1:Math.abs(fit.r)};
+    }).sort((a,b)=>b.mag-a.mag);
+    const active=ranked.find(x=>x.f.id===factor.id);
+    const nightsWithSleep=sleepNights.filter(n=>n.nightSleep!=null).length;
+    weekCache.scatter=(active&&active.fit.pts.length>=4)?buildScatter(active.fit,factor):null;
+    const selNight=ui.selectedSleepNight
+      ? (weekCache.scatter&&weekCache.scatter.dots.find(d=>d.dateKey===ui.selectedSleepNight))
+      : null;
+
+    html+=`
+    <div class="card card-tight">
+      <div class="card-head">
+        <div class="card-title">What's Driving Overnight Sleep</div>
+        <div class="chip-row-sm">
+          ${SLEEP_WINDOWS.map(n=>chipHtml(n+'d',ui.sleepWindowDays===n,'#8B5CF6',`setSleepWindow(${n})`,true)).join('')}
+        </div>
+      </div>
+      <div class="card-sub" style="margin-bottom:12px">Each daytime factor against the sleep that
+        followed it, over the last ${ui.sleepWindowDays} days — ${nightsWithSleep}
+        night${nightsWithSleep===1?'':'s'} with sleep logged. Ranked by strength.</div>
+      ${nightsWithSleep<4?`<div class="summary-warn">Needs at least 4 nights of logged
+        overnight sleep to compare anything. Keep logging and this fills in.</div>`:`
+        ${ranked.map(({f,fit,verdict})=>{
+          const on=f.id===factor.id;
+          const w=fit.r==null?0:Math.round(Math.abs(fit.r)*50);
+          const eff=factorEffectSign(f,fit);
+          const pos=eff>0;
+          const cls=fit.r==null?'muted':(verdict.strong?(pos?'pos':'neg'):'muted');
+          return `<button class="fac-row${on?' active':''}" onclick="setSleepFactor('${f.id}')">
+            <div class="fac-main">
+              <div class="fac-name">${esc(f.label)}</div>
+              <div class="fac-effect">${fit.r==null
+                ?`${fit.n} night${fit.n===1?'':'s'} — not enough yet`
+                :esc(f.phrase(fit.slope))+` · ${fit.n} nights`}</div>
+            </div>
+            <div class="fac-meter">${w?`<div class="fac-bar" style="${pos?'left':'right'}:50%;width:${w}%;
+              background:${verdict.strong?(pos?'#12B886':'#F97316'):'#C6CFDB'}"></div>`:''}</div>
+            <div class="fac-tag ${cls}">${fit.r==null?'—':(pos?'▲ more':'▼ less')}</div>
+          </button>`;
+        }).join('')}
+        <div class="card-hint" style="margin-top:14px">${esc(factor.note)}</div>
+        ${active&&active.fit.r!=null?`
+          <div class="sel-block">
+            <span class="sel-dot" style="background:#8B5CF6"></span>
+            <span><b>${esc(factor.label)}:</b> ${esc(factor.phrase(active.fit.slope))} —
+              ${esc(active.verdict.label.toLowerCase())}, strength
+              ${Math.abs(active.fit.r).toFixed(2)} of 1</span>
+          </div>`:''}
+        ${weekCache.scatter?`
+          <div class="card-hint">Tap a dot to see that night${selNight?'':' · dashed line is the trend'}</div>
+          ${selNight?`<div class="sel-block">
+            <span class="sel-dot" style="background:#8B5CF6"></span>
+            <span>${esc(selNight.day)} ${esc(selNight.dateKey)} · ${esc(factor.label)}
+              ${esc(factor.fmt(selNight.x))} · ${selNight.y.toFixed(1)} hr overnight</span>
+          </div>`:''}
+          ${scatterChartHtml(weekCache.scatter)}`
+          :`<div class="card-hint">Not enough nights with this factor logged to chart it yet.</div>`}
+      `}
+      <div class="analytics-note">These are correlations across
+        ${nightsWithSleep} night${nightsWithSleep===1?'':'s'}, not proof of cause — and at
+        Wesley's corrected age both his sleep and what drives it are still changing fast, which
+        is why the window stays short. Bedtime is the factor with the strongest research behind
+        it; total nap time is the one where studies most often find the opposite of "sleep
+        begets sleep". Bedtime, time awake before bed, and the last-feed gap all measure from
+        the same bedtime, so they tend to rise and fall together — read them as one story, not
+        three. Treat a weak signal as "keep watching", not "no effect".</div>
     </div>`;
 
     const days=last7Days();
