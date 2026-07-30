@@ -708,7 +708,8 @@ let ui = {
   showFeedOverlay: false, showSleepOverlay: false,
   growthZoomLo: null, growthZoomHi: null,
   feedLogPage: 0,
-  sleepWindowDays: 14, sleepFactor: 'bedtime', selectedSleepNight: null,
+  sleepWindowDays: 14, sleepFactor: 'bedtime', sleepOutcome: 'longest',
+  selectedSleepNight: null,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1065,25 +1066,11 @@ const SLEEP_WINDOWS=[14,21,28];
 function buildSleepNights(days){
   const on=(list,k)=>list.filter(e=>e.date===k);
   return days.map(d=>{
-    const nextKey=dateKeyFor(new Date(d.date.getTime()+864e5));
-    // Hours-since-noon puts a 9pm and a 12:30am bedtime on one rising scale.
-    const onsets=[];let nightSleep=0;
-    on(shared.sleepLogs,d.key).forEach(s=>{
-      if(s.type!=='night')return;
-      const h=hhmmToHours(s.start);
-      if(h==null||h<12)return;
-      onsets.push(h-12);nightSleep+=+s.hours||0;
-    });
-    on(shared.sleepLogs,nextKey).forEach(s=>{
-      if(s.type!=='night')return;
-      const h=hhmmToHours(s.start);
-      if(h==null||h>=12)return;
-      onsets.push(h+12);nightSleep+=+s.hours||0;
-    });
+    const st=nightStats(nightSessions(d));
     const naps=on(shared.sleepLogs,d.key).filter(s=>s.type==='nap');
     const feeds=on(shared.feedLogs,d.key).filter(f=>logHour(f)>=6);
     const napEnds=naps.map(s=>hhmmToHours(s.end)).filter(v=>v!=null);
-    const bedtime=onsets.length?Math.min(...onsets):null;
+    const bedtime=st.bedtime;
     const lastNapEnd=napEnds.length?Math.max(...napEnds):null;
     const lastFeed=feeds.length?Math.max(...feeds.map(logHour)):null;
     // A gap only makes sense if the event really preceded bedtime; anything
@@ -1095,7 +1082,7 @@ function buildSleepNights(days){
     };
     return {
       dateKey:d.key,day:d.dow,
-      nightSleep:nightSleep>0?nightSleep:null,
+      total:st.total,longest:st.longest,wakings:st.wakings,
       bedtime,
       // No naps on a day that was otherwise tracked is real data (zero), but an
       // untracked day is missing data, not a zero.
@@ -1115,6 +1102,25 @@ function signedMins(hours){
   const m=Math.round(hours*60);
   return (m>=0?'+':'−')+Math.abs(m)+' min';
 }
+function signedCount(v){return (v>=0?'+':'−')+Math.abs(v).toFixed(1);}
+// What "better sleep" is being measured against. The longest unbroken stretch
+// leads, because one solid block and few wake-ups is what "slept well" means —
+// a night's total can look fine while being broken into pieces.
+const SLEEP_OUTCOMES=[
+  {id:'longest',label:'Longest stretch',get:n=>n.longest,betterHigher:true,
+   deltaPhrase:d=>`${signedMins(d)} of longest stretch`,
+   axisFmt:v=>v.toFixed(1)+'h',valFmt:v=>v.toFixed(1)+' hr unbroken',
+   blurb:'The single longest unbroken block of overnight sleep.'},
+  {id:'total',label:'Total night sleep',get:n=>n.total,betterHigher:true,
+   deltaPhrase:d=>`${signedMins(d)} of night sleep`,
+   axisFmt:v=>v.toFixed(1)+'h',valFmt:v=>v.toFixed(1)+' hr total',
+   blurb:'All overnight sleep added up, however broken it was.'},
+  {id:'wakings',label:'Wake-ups',get:n=>n.wakings,betterHigher:false,
+   deltaPhrase:d=>`${signedCount(d)} wake-ups`,
+   axisFmt:v=>v.toFixed(1),valFmt:v=>v+' wake-up'+(v===1?'':'s'),
+   blurb:'Times he woke between logged stretches — fewer is better.'},
+];
+function sleepOutcomeById(id){return SLEEP_OUTCOMES.find(o=>o.id===id)||SLEEP_OUTCOMES[0];}
 // Axis ticks need to stay short so they never wrap: "9p", "5:30p".
 function shortHourLabel(h){
   const norm=((h%24)+24)%24,hh=Math.floor(norm),mm=Math.round((norm-hh)*60);
@@ -1130,52 +1136,55 @@ const SLEEP_FACTORS=[
    // phrased against the clock and `flip` keeps the bar and tag pointing the
    // same way as the sentence.
    flip:true,
-   phrase:s=>`${signedMins(-s)} of night sleep per hour earlier`,
+   per:'per hour earlier',
    note:'Best-evidenced lever at this age — ~34 min more night sleep per hour earlier in 6–24-week-olds.'},
   {id:'napHours',label:'Total nap hours',axis:'Daytime naps (hr)',
    get:r=>r.napHours,fmt:v=>v.toFixed(1)+' hr',axisFmt:v=>v.toFixed(1),
-   phrase:s=>`${signedMins(s)} of night sleep per extra hour of naps`,
+   per:'per extra hour of naps',
    note:'Direction varies by baby — research finds longer daytime sleep often means shorter nights, not longer.'},
   {id:'lastNapEnd',label:'Last nap ends',axis:'Last nap ends',
    get:r=>r.lastNapEnd,fmt:v=>hourLabel(v),axisFmt:shortHourLabel,
-   phrase:s=>`${signedMins(s)} of night sleep per hour later`,
+   per:'per hour later',
    note:'Late-afternoon naps tracked with shorter, later-starting nights in the nap research.'},
   {id:'wakeWindow',label:'Awake before bed',axis:'Last nap → bedtime (hr)',
    get:r=>r.wakeWindow,fmt:v=>v.toFixed(1)+' hr',axisFmt:v=>v.toFixed(1),
-   phrase:s=>`${signedMins(s)} of night sleep per extra hour awake`,
+   per:'per extra hour awake',
    note:'Too short and bedtime acts like a nap; too long and overtiredness breaks the night.'},
   {id:'lastFeedGap',label:'Last feed → bedtime',axis:'Last feed → bedtime (hr)',
    get:r=>r.lastFeedGap,fmt:v=>v.toFixed(1)+' hr',axisFmt:v=>v.toFixed(1),
-   phrase:s=>`${signedMins(s)} of night sleep per extra hour of gap`,
+   per:'per extra hour of gap',
    note:'Infants not fed to sleep had longer nights at 6 and 15 weeks, so this gap is the useful read on the last feed.'},
   {id:'lastFeed',label:'Time of last feed',axis:'Last feed',
    get:r=>r.lastFeed,fmt:v=>hourLabel(v),axisFmt:shortHourLabel,
-   phrase:s=>`${signedMins(s)} of night sleep per hour later`,
+   per:'per hour later',
    note:'Raw clock time of the last daytime feed, as asked — the gap above usually reads cleaner.'},
   {id:'dayOz',label:'Daytime bottle oz',axis:'Daytime bottle (oz)',
    get:r=>r.dayOz,fmt:v=>v.toFixed(1)+' oz',axisFmt:v=>v.toFixed(0),
-   phrase:s=>`${signedMins(s)} of night sleep per extra ounce`,
+   per:'per extra ounce',
    note:'Daytime intake is the better-supported feeding measure; short sleepers make up calories overnight.'},
   {id:'feedCount',label:'Feeds that day',axis:'Feeds that day',
    get:r=>r.feedCount,fmt:v=>Math.round(v)+' feeds',axisFmt:v=>String(Math.round(v)),
-   phrase:s=>`${signedMins(s)} of night sleep per extra feed`,
+   per:'per extra feed',
    note:'Count is a rougher proxy than volume — a day of small feeds counts the same as full ones.'},
 ];
 function sleepFactorById(id){return SLEEP_FACTORS.find(f=>f.id===id)||SLEEP_FACTORS[0];}
 // Least-squares fit plus Pearson r, on the nights where both values exist.
-function fitFactor(nights,factor){
+function fitFactor(nights,factor,outcome){
   const pts=[];
   nights.forEach(r=>{
-    const x=factor.get(r);
-    if(x==null||isNaN(x)||r.nightSleep==null)return;
-    pts.push({x,y:r.nightSleep,dateKey:r.dateKey,day:r.day});
+    const x=factor.get(r),y=outcome.get(r);
+    if(x==null||isNaN(x)||y==null||isNaN(y))return;
+    pts.push({x,y,dateKey:r.dateKey,day:r.day});
   });
   const n=pts.length;
-  if(n<4)return {n,pts,r:null,slope:null};
+  // `why` separates "not enough nights yet" from "there were plenty of nights,
+  // but this never changed" — with no spread there is nothing to correlate.
+  if(n<4)return {n,pts,r:null,slope:null,why:'few'};
   const mx=pts.reduce((a,p)=>a+p.x,0)/n,my=pts.reduce((a,p)=>a+p.y,0)/n;
   let sxx=0,syy=0,sxy=0;
   pts.forEach(p=>{const dx=p.x-mx,dy=p.y-my;sxx+=dx*dx;syy+=dy*dy;sxy+=dx*dy;});
-  if(sxx<=0||syy<=0)return {n,pts,r:null,slope:null};
+  if(sxx<=0)return {n,pts,r:null,slope:null,why:'flatFactor'};
+  if(syy<=0)return {n,pts,r:null,slope:null,why:'flatOutcome'};
   return {n,pts,r:sxy/Math.sqrt(sxx*syy),slope:sxy/sxx,mx,my};
 }
 // Critical |r| for p<.05 two-tailed by degrees of freedom. Below this the
@@ -1200,6 +1209,9 @@ function factorVerdict(fit){
 function factorEffectSign(f,fit){
   if(fit.r==null)return 0;
   return fit.r*(f.flip?-1:1);
+}
+function effectPhrase(f,fit,outcome){
+  return `${outcome.deltaPhrase(fit.slope*(f.flip?-1:1))} ${f.per}`;
 }
 
 // Every 2 hours across the 24h axis.
@@ -1231,37 +1243,56 @@ const NIGHT_START=20,NIGHT_END=31;
 const NIGHT_HOUR_LABELS=[{label:'8p',topPct:0},{label:'11p',topPct:27.3},{label:'2a',topPct:54.5},
   {label:'5a',topPct:81.8},{label:'7a',topPct:100}];
 
-// Night sleep sessions for one day, placed on the 8pm->7am axis.
-function nightSessions(dateKey){
-  return shared.sleepLogs
-    .filter(s=>s.date===dateKey&&s.type==='night')
-    .map(s=>{
-      let start=hhmmToHours(s.start);
-      if(start==null)return null;
-      if(start<12)start+=24;               // after-midnight starts belong to this night
-      return {start,end:start+(+s.hours||0),hours:+s.hours||0};
-    })
-    .filter(Boolean)
-    .sort((a,b)=>a.start-b.start);
+// ── THE definition of "a night", shared by every section of the Sleep tab ────
+// A night belongs to the day it BEGINS: Saturday night is the sleep that starts
+// Saturday evening and runs to Sunday morning. A stretch logged after midnight
+// carries the NEXT calendar date, so it is pulled back onto the night before it
+// — without that, a 1am stretch would be credited to the wrong night.
+// Starts sit on a 12→36 scale (21 = 9pm, 25 = 1am) so evening and after-midnight
+// stretches sort and subtract against each other correctly.
+function nightSessions(day){
+  const nextKey=dateKeyFor(new Date(day.date.getTime()+864e5));
+  const out=[];
+  shared.sleepLogs.forEach(s=>{
+    if(s.type!=='night')return;
+    const h=hhmmToHours(s.start);
+    if(h==null)return;
+    const hours=+s.hours||0;
+    if(s.date===day.key&&h>=12)out.push({start:h,hours,key:s._key});
+    else if(s.date===nextKey&&h<12)out.push({start:h+24,hours,key:s._key});
+  });
+  return out.map(s=>({...s,end:s.start+s.hours})).sort((a,b)=>a.start-b.start);
+}
+// The longest unbroken stretch is the quality signal — a night's total hides a
+// fragmented night — and the wake count is the other half of "slept well".
+function nightStats(ss){
+  if(!ss.length)return {sessions:0,total:null,longest:null,wakings:null,bedtime:null};
+  return {
+    sessions:ss.length,
+    total:ss.reduce((a,s)=>a+s.hours,0),
+    longest:Math.max(...ss.map(s=>s.hours)),
+    wakings:ss.length-1,
+    bedtime:ss[0].start-12          // hours since noon, so 9pm = 9
+  };
 }
 // Longest single unbroken overnight stretch, which is what the card claims —
 // not the night's total, which would hide a fragmented night.
 function buildLongestStretch(){
-  return last7Days().map(d=>{
-    const ss=nightSessions(d.key);
-    return {day:d.dow,dateLabel:d.key,hours:ss.length?Math.max(...ss.map(s=>s.hours)):0};
-  });
+  return last7Days().map(d=>({
+    day:d.dow,dateLabel:d.key,hours:nightStats(nightSessions(d)).longest||0
+  }));
 }
 // A waking is the gap between two consecutive night sessions, marked at the
-// moment he woke (the end of the earlier session).
+// moment he woke (the end of the earlier session). Every gap is counted; only
+// the dots that land on the 8pm→7am axis can be drawn on it.
 function buildNightWakings(){
   return last7Days().map(d=>{
-    const ss=nightSessions(d.key);
+    const ss=nightSessions(d);
     const dots=ss.slice(0,-1)
       .map(s=>s.end)
       .filter(t=>t>=NIGHT_START&&t<=NIGHT_END)
       .map(t=>({topPct:(t-NIGHT_START)/(NIGHT_END-NIGHT_START)*100,timeLabel:hourLabel(t%24)}));
-    return {day:d.dow,dateLabel:d.key,count:dots.length,dots};
+    return {day:d.dow,dateLabel:d.key,count:Math.max(0,ss.length-1),dots};
   });
 }
 // Group log rows under date headings, newest first.
@@ -1395,7 +1426,7 @@ function growthChartHtml(gc){
 // One night per dot: the daytime factor on x, that night's sleep on y, with a
 // least-squares trend line. Single series, so the card title carries identity
 // and no legend is needed.
-function buildScatter(fit,factor){
+function buildScatter(fit,factor,outcome){
   const P={l:44,r:18,t:14,b:34},W=580,H=230;
   const iW=W-P.l-P.r,iH=H-P.t-P.b;
   const xs=fit.pts.map(p=>p.x),ys=fit.pts.map(p=>p.y);
@@ -1408,7 +1439,7 @@ function buildScatter(fit,factor){
   const gridLines=[];
   for(let i=0;i<=4;i++){
     const v=yLo+(i/4)*(yHi-yLo),y=yS(v);
-    gridLines.push({y:y.toFixed(1),topPct:(y/H*100).toFixed(1),label:v.toFixed(1)+'h'});
+    gridLines.push({y:y.toFixed(1),topPct:(y/H*100).toFixed(1),label:outcome.axisFmt(v)});
   }
   const axisFmt=factor.axisFmt||factor.fmt;
   const xTicks=[];
@@ -1545,6 +1576,7 @@ function scatterSelectNear(clientX,clientY){
 }
 function setSleepFactor(id){ui.sleepFactor=id;ui.selectedSleepNight=null;render();}
 function setSleepWindow(n){ui.sleepWindowDays=n;ui.selectedSleepNight=null;render();}
+function setSleepOutcome(id){ui.sleepOutcome=id;ui.selectedSleepNight=null;render();}
 // `src` is which chart was tapped ('feed' or 'sleep'); each holds its own
 // entries plus the other kind as an overlay, so both are selectable from either.
 function selectSleepBlock(src,di,bi){
@@ -2013,9 +2045,12 @@ function render(){
     const td=todayStr();
     const todays=shared.sleepLogs.filter(s=>s.date===td);
     const napToday=todays.filter(s=>s.type==='nap').length;
-    const nights=shared.sleepLogs.filter(s=>s.type==='night');
-    const longestNight=nights.length?Math.max(...nights.map(s=>+s.hours||0)):0;
-    const naps=shared.sleepLogs.filter(s=>s.type==='nap');
+    // Both weekly tiles read off the last 7 nights so they describe now, not
+    // every night ever logged — and the night one uses the shared definition.
+    const week7=last7Days();
+    const longestNight=Math.max(0,...week7.map(d=>nightStats(nightSessions(d)).longest||0));
+    const naps=week7.reduce((a,d)=>
+      a.concat(shared.sleepLogs.filter(s=>s.date===d.key&&s.type==='nap')),[]);
     const avgNap=naps.length?naps.reduce((a,s)=>a+(+s.hours||0),0)/naps.length:0;
     const hm=h=>`${Math.floor(h)}h ${Math.round((h-Math.floor(h))*60)}m`;
     const sel=ui.selectedSleepBlock;
@@ -2028,8 +2063,8 @@ function render(){
 
     <div class="tiles">
       <div class="tile"><div class="v" style="color:#64748B">${napToday}</div><div class="k">Naps today</div></div>
-      <div class="tile"><div class="v" style="color:#8B5CF6">${hm(longestNight)}</div><div class="k">Longest night stretch</div></div>
-      <div class="tile"><div class="v" style="color:var(--ink)">${hm(avgNap)}</div><div class="k">Avg nap length</div></div>
+      <div class="tile"><div class="v" style="color:#8B5CF6">${hm(longestNight)}</div><div class="k">Longest stretch (7d)</div></div>
+      <div class="tile"><div class="v" style="color:var(--ink)">${hm(avgNap)}</div><div class="k">Avg nap length (7d)</div></div>
     </div>
 
     <div class="card card-tight">
@@ -2072,13 +2107,15 @@ function render(){
     // ── What's driving overnight sleep
     const sleepNights=buildSleepNights(lastNDays(ui.sleepWindowDays));
     const factor=sleepFactorById(ui.sleepFactor);
+    const outcome=sleepOutcomeById(ui.sleepOutcome);
     const ranked=SLEEP_FACTORS.map(f=>{
-      const fit=fitFactor(sleepNights,f);
+      const fit=fitFactor(sleepNights,f,outcome);
       return {f,fit,verdict:factorVerdict(fit),mag:fit.r==null?-1:Math.abs(fit.r)};
     }).sort((a,b)=>b.mag-a.mag);
     const active=ranked.find(x=>x.f.id===factor.id);
-    const nightsWithSleep=sleepNights.filter(n=>n.nightSleep!=null).length;
-    weekCache.scatter=(active&&active.fit.pts.length>=4)?buildScatter(active.fit,factor):null;
+    const nightsWithSleep=sleepNights.filter(n=>outcome.get(n)!=null).length;
+    weekCache.scatter=(active&&active.fit.pts.length>=4)
+      ?buildScatter(active.fit,factor,outcome):null;
     const selNight=ui.selectedSleepNight
       ? (weekCache.scatter&&weekCache.scatter.dots.find(d=>d.dateKey===ui.selectedSleepNight))
       : null;
@@ -2091,9 +2128,13 @@ function render(){
           ${SLEEP_WINDOWS.map(n=>chipHtml(n+'d',ui.sleepWindowDays===n,'#8B5CF6',`setSleepWindow(${n})`,true)).join('')}
         </div>
       </div>
-      <div class="card-sub" style="margin-bottom:12px">Each daytime factor against the sleep that
-        followed it, over the last ${ui.sleepWindowDays} days — ${nightsWithSleep}
-        night${nightsWithSleep===1?'':'s'} with sleep logged. Ranked by strength.</div>
+      <div class="card-sub" style="margin-bottom:10px">Each daytime factor against the night that
+        followed it — the sleep starting that evening and ending the next morning. Last
+        ${ui.sleepWindowDays} days, ${nightsWithSleep} night${nightsWithSleep===1?'':'s'} logged.</div>
+      <div class="chip-row" style="margin-bottom:8px">
+        ${SLEEP_OUTCOMES.map(o=>chipHtml(o.label,outcome.id===o.id,'#8B5CF6',`setSleepOutcome('${o.id}')`)).join('')}
+      </div>
+      <div class="card-hint">${esc(outcome.blurb)}</div>
       ${nightsWithSleep<4?`<div class="summary-warn">Needs at least 4 nights of logged
         overnight sleep to compare anything. Keep logging and this fills in.</div>`:`
         ${ranked.map(({f,fit,verdict})=>{
@@ -2101,16 +2142,19 @@ function render(){
           const w=fit.r==null?0:Math.round(Math.abs(fit.r)*50);
           const eff=factorEffectSign(f,fit);
           const pos=eff>0;
-          const cls=fit.r==null?'muted':(verdict.strong?(pos?'pos':'neg'):'muted');
+          const good=pos===outcome.betterHigher;
+          const cls=fit.r==null?'muted':(verdict.strong?(good?'pos':'neg'):'muted');
           return `<button class="fac-row${on?' active':''}" onclick="setSleepFactor('${f.id}')">
             <div class="fac-main">
               <div class="fac-name">${esc(f.label)}</div>
               <div class="fac-effect">${fit.r==null
-                ?`${fit.n} night${fit.n===1?'':'s'} — not enough yet`
-                :esc(f.phrase(fit.slope))+` · ${fit.n} nights`}</div>
+                ?(fit.why==='flatFactor'?`Same every night — nothing to compare`
+                  :fit.why==='flatOutcome'?`${esc(outcome.label)} didn't vary`
+                  :`${fit.n} night${fit.n===1?'':'s'} — not enough yet`)
+                :esc(effectPhrase(f,fit,outcome))+` · ${fit.n} nights`}</div>
             </div>
             <div class="fac-meter">${w?`<div class="fac-bar" style="${pos?'left':'right'}:50%;width:${w}%;
-              background:${verdict.strong?(pos?'#12B886':'#F97316'):'#C6CFDB'}"></div>`:''}</div>
+              background:${verdict.strong?(good?'#12B886':'#F97316'):'#C6CFDB'}"></div>`:''}</div>
             <div class="fac-tag ${cls}">${fit.r==null?'—':(pos?'▲ more':'▼ less')}</div>
           </button>`;
         }).join('')}
@@ -2118,7 +2162,7 @@ function render(){
         ${active&&active.fit.r!=null?`
           <div class="sel-block">
             <span class="sel-dot" style="background:#8B5CF6"></span>
-            <span><b>${esc(factor.label)}:</b> ${esc(factor.phrase(active.fit.slope))} —
+            <span><b>${esc(factor.label)}:</b> ${esc(effectPhrase(factor,active.fit,outcome))} —
               ${esc(active.verdict.label.toLowerCase())}, strength
               ${Math.abs(active.fit.r).toFixed(2)} of 1</span>
           </div>`:''}
@@ -2127,12 +2171,16 @@ function render(){
           ${selNight?`<div class="sel-block">
             <span class="sel-dot" style="background:#8B5CF6"></span>
             <span>${esc(selNight.day)} ${esc(selNight.dateKey)} · ${esc(factor.label)}
-              ${esc(factor.fmt(selNight.x))} · ${selNight.y.toFixed(1)} hr overnight</span>
+              ${esc(factor.fmt(selNight.x))} · ${esc(outcome.valFmt(selNight.y))}</span>
           </div>`:''}
           ${scatterChartHtml(weekCache.scatter)}`
           :`<div class="card-hint">Not enough nights with this factor logged to chart it yet.</div>`}
       `}
-      <div class="analytics-note">These are correlations across
+      <div class="analytics-note">A night here is the sleep that <b>starts that evening and
+        ends the next morning</b> — Saturday night is Saturday evening through Sunday morning,
+        even for a stretch logged after midnight. Longest stretch and wake-ups only tell you
+        something if each stretch is logged separately; if a broken night goes in as one block
+        it reads as one unbroken stretch with no wake-ups. These are correlations across
         ${nightsWithSleep} night${nightsWithSleep===1?'':'s'}, not proof of cause — and at
         Wesley's corrected age both his sleep and what drives it are still changing fast, which
         is why the window stays short. Bedtime is the factor with the strongest research behind
@@ -2143,12 +2191,14 @@ function render(){
     </div>`;
 
     const days=last7Days();
-    const bars=days.map(d=>{
-      const ss=shared.sleepLogs.filter(s=>s.date===d.key);
-      return {day:d.dow,dateLabel:d.key,
-        nap:ss.filter(s=>s.type==='nap').reduce((a,s)=>a+(+s.hours||0),0),
-        night:ss.filter(s=>s.type==='night').reduce((a,s)=>a+(+s.hours||0),0)};
-    });
+    const bars=days.map(d=>({
+      day:d.dow,dateLabel:d.key,
+      nap:shared.sleepLogs.filter(s=>s.date===d.key&&s.type==='nap')
+        .reduce((a,s)=>a+(+s.hours||0),0),
+      // The night that BEGAN this day, so a post-midnight stretch counts here
+      // rather than on the following column.
+      night:nightStats(nightSessions(d)).total||0
+    }));
     const maxSleep=Math.max(...bars.map(b=>Math.max(b.nap,b.night)),1)*1.15;
     const stretch=buildLongestStretch();
     const maxStretch=Math.max(...stretch.map(s=>s.hours),1)*1.15;
