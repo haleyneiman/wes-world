@@ -1,0 +1,40 @@
+{
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": ["/*.{png,json,js,webmanifest}"]
+  },
+  "mimeTypes": {
+    ".json": "application/json",
+    ".webmanifest": "application/manifest+json"
+  },
+  "routes": [
+    {
+      "route": "/index.html",
+      "headers": { "cache-control": "no-cache, max-age=0, must-revalidate" }
+    },
+    {
+      "route": "/",
+      "headers": { "cache-control": "no-cache, max-age=0, must-revalidate" }
+    },
+    {
+      "route": "/sw.js",
+      "headers": { "cache-control": "no-cache, max-age=0, must-revalidate" }
+    },
+    {
+      "route": "/manifest.json",
+      "headers": { "cache-control": "public, max-age=3600" }
+    },
+    {
+      "route": "/icon-192.png",
+      "headers": { "cache-control": "public, max-age=2592000" }
+    },
+    {
+      "route": "/icon-512.png",
+      "headers": { "cache-control": "public, max-age=2592000" }
+    }
+  ],
+  "globalHeaders": {
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "strict-origin-when-cross-origin"
+  }
+}
