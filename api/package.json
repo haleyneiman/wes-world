@@ -1,0 +1,15 @@
+{
+  "name": "wesworld-api",
+  "version": "1.0.0",
+  "description": "Azure Functions API backing Wes World, over Cosmos DB.",
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@azure/cosmos": "^4.2.0"
+  },
+  "scripts": {
+    "test": "node test/store.test.js"
+  }
+}

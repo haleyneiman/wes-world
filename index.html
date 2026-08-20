@@ -383,20 +383,16 @@ input::placeholder{color:#C7C7DE;}
   <div class="login-card">
     <div class="login-logo">Wes <span>World</span></div>
     <div class="login-sub">Tracking Wesley's world, together</div>
-    <button class="login-google-btn" onclick="doGoogleSignIn()">
-      <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.87 2.7-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.96v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.17.28-1.7V4.97H.96A9 9 0 0 0 0 9c0 1.45.35 2.83.96 4.03l2.99-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .96 4.97l2.99 2.33C4.66 5.17 6.65 3.58 9 3.58z"/></svg>
-      Continue with Google
+    <button class="login-google-btn" onclick="doMicrosoftSignIn()">
+      <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#F25022" d="M0 0h8.5v8.5H0z"/><path fill="#7FBA00" d="M9.5 0H18v8.5H9.5z"/><path fill="#00A4EF" d="M0 9.5h8.5V18H0z"/><path fill="#FFB900" d="M9.5 9.5H18V18H9.5z"/></svg>
+      Continue with Microsoft
     </button>
-    <div class="login-divider">or</div>
-    <div class="login-field">
-      <label>Email</label>
-      <input type="email" id="loginEmail" inputmode="email" autocomplete="username" placeholder="you@example.com"/>
-    </div>
-    <div class="login-field">
-      <label>Password</label>
-      <input type="password" id="loginPassword" autocomplete="current-password" placeholder="••••••••"/>
-    </div>
-    <button class="login-btn" onclick="doSignIn()">Sign In</button>
+    <button class="login-google-btn" onclick="doGitHubSignIn()" style="margin-bottom:8px">
+      <svg width="18" height="18" viewBox="0 0 16 16" fill="#1A1A2E"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.4 7.4 0 0 1 2-.27c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+      Continue with GitHub
+    </button>
+    <div class="login-sub" style="margin-bottom:0;margin-top:14px">Wes World is limited to
+      invited accounts.</div>
     <div class="login-error" id="loginError"></div>
   </div>
 </div>
@@ -441,110 +437,85 @@ input::placeholder{color:#C7C7DE;}
 </div>
 
 <!-- Firebase SDK (compat) -->
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-
 <script>
 'use strict';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// FIREBASE INIT
+// AUTH — Azure Static Web Apps
+//
+// Sign-in happens at the platform's /.auth/* endpoints, so there is no auth SDK
+// and no API key in this file. The session cookie rides along with every /api
+// request automatically.
+//
+// Completing a Microsoft or GitHub login only proves who someone is — ANY such
+// account can do that. Access to Wesley's data additionally requires the
+// `family` role, granted per person in the Static Web App's Role management.
 // ─────────────────────────────────────────────────────────────────────────────
-const firebaseConfig = {
-  apiKey: "AIzaSyB-Vc52KWlvVUkzUR5tnxfPch9EdFd3Wbk",
-  authDomain: "wes-world-2b267.firebaseapp.com",
-  databaseURL: "https://wes-world-2b267-default-rtdb.firebaseio.com",
-  projectId: "wes-world-2b267",
-  storageBucket: "wes-world-2b267.firebasestorage.app",
-  messagingSenderId: "937840280028",
-  appId: "1:937840280028:web:3901d5cdc74b74ee9b0f19"
-};
-
-firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
-const auth = firebase.auth();
-
-// ─────────────────────────────────────────────────────────────────────────────
-// AUTH — gate the whole app behind sign-in
-// ─────────────────────────────────────────────────────────────────────────────
+const FAMILY_ROLE = 'family';
+let currentUser = null;
 let listenersAttached = false;
 
-auth.getRedirectResult().catch(e => {
-  const err = document.getElementById('loginError');
-  err.textContent = friendlyAuthError(e);
-  err.classList.add('visible');
-});
+async function loadIdentity() {
+  try {
+    const res = await fetch('/.auth/me', { credentials: 'same-origin' });
+    if (!res.ok) return null;
+    const body = await res.json();
+    const p = body && body.clientPrincipal;
+    if (!p || !p.userId) return null;
+    return {
+      userId: p.userId,
+      userDetails: p.userDetails || '',
+      provider: p.identityProvider || '',
+      roles: Array.isArray(p.userRoles) ? p.userRoles : []
+    };
+  } catch (e) {
+    return null;
+  }
+}
 
-auth.onAuthStateChanged(user => {
-  const login = document.getElementById('loginScreen');
-  const loading = document.getElementById('loadingScreen');
-  if (user) {
-    login.classList.remove('visible');
-    if (!listenersAttached) {
-      loading.classList.remove('hidden');
-      document.getElementById('loadingMsg').textContent = 'Syncing with Firebase…';
-      listenersAttached = true;
-      initFirebase();
-    }
+function showLogin(message) {
+  document.getElementById('loadingScreen').classList.add('hidden');
+  document.getElementById('loginScreen').classList.add('visible');
+  const err = document.getElementById('loginError');
+  if (message) {
+    err.innerHTML = message;
+    err.classList.add('visible');
   } else {
-    firebaseReady = false;
-    loading.classList.add('hidden');
-    login.classList.add('visible');
+    err.classList.remove('visible');
   }
-});
+}
 
-function doSignIn() {
-  const email = document.getElementById('loginEmail').value.trim();
-  const pw = document.getElementById('loginPassword').value;
-  const err = document.getElementById('loginError');
-  err.classList.remove('visible');
-  if (!email || !pw) {
-    err.textContent = 'Enter your email and password.';
-    err.classList.add('visible');
-    return;
+async function startSession() {
+  currentUser = await loadIdentity();
+  if (!currentUser) return showLogin('');
+  if (!currentUser.roles.includes(FAMILY_ROLE)) {
+    // Spell out the user id, because granting the role means pasting exactly
+    // this value into the Static Web App's invite screen.
+    return showLogin('Signed in as <strong>' + esc(currentUser.userDetails || currentUser.userId) +
+      '</strong>, but this account has not been invited yet.<br><br>' +
+      'Add this user ID in the Azure portal under Static Web App → Role management, ' +
+      'with the role <strong>' + FAMILY_ROLE + '</strong>:<br>' +
+      '<code style="word-break:break-all">' + esc(currentUser.userId) + '</code>');
   }
-  auth.signInWithEmailAndPassword(email, pw).catch(e => {
-    err.textContent = friendlyAuthError(e);
-    err.classList.add('visible');
-  });
+  document.getElementById('loginScreen').classList.remove('visible');
+  if (!listenersAttached) {
+    listenersAttached = true;
+    document.getElementById('loadingScreen').classList.remove('hidden');
+    document.getElementById('loadingMsg').textContent = 'Loading Wesley’s data…';
+    initBackend();
+  }
 }
 
-const googleProvider = new firebase.auth.GoogleAuthProvider();
-
-function doGoogleSignIn() {
-  const err = document.getElementById('loginError');
-  err.classList.remove('visible');
-  auth.signInWithPopup(googleProvider).catch(e => {
-    if (e && e.code === 'auth/popup-blocked') {
-      auth.signInWithRedirect(googleProvider);
-      return;
-    }
-    if (e && (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request')) return;
-    err.textContent = friendlyAuthError(e);
-    err.classList.add('visible');
-  });
+function signInWith(provider) {
+  const back = encodeURIComponent(location.pathname + location.search);
+  location.href = '/.auth/login/' + provider + '?post_login_redirect_uri=' + back;
 }
-
-function friendlyAuthError(e) {
-  const code = e && e.code || '';
-  if (code.includes('wrong-password') || code.includes('invalid-credential') || code.includes('invalid-login-credentials'))
-    return 'Incorrect email or password.';
-  if (code.includes('user-not-found')) return 'No account found for that email.';
-  if (code.includes('too-many-requests')) return 'Too many attempts — wait a minute and try again.';
-  if (code.includes('network-request-failed')) return 'No connection — check your internet and try again.';
-  if (code.includes('unauthorized-domain')) return 'This site isn\'t authorized for Google sign-in yet — add it in the Firebase console.';
-  return 'Sign-in failed: ' + (e && e.message || 'unknown error');
-}
+function doMicrosoftSignIn() { signInWith('aad'); }
+function doGitHubSignIn() { signInWith('github'); }
 
 function doSignOut() {
-  if (confirm('Sign out of Wes World?')) auth.signOut();
+  if (confirm('Sign out of Wes World?')) location.href = '/.auth/logout?post_logout_redirect_uri=/';
 }
-
-// Allow pressing Enter to sign in
-document.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && document.getElementById('loginScreen').classList.contains('visible')) doSignIn();
-});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SERVICE WORKER
@@ -731,73 +702,212 @@ let shared = {
   achieved: {},       // {id: dateString}
 };
 
-let firebaseReady = false;
+let backendReady = false;
 let initialLoadDone = false;
+let pollTimer = null;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// FIREBASE LISTENERS — real-time sync
+// BACKEND — /api (Azure Functions) over Cosmos DB
+//
+// The Realtime Database used to push changes and queue offline writes for free.
+// Neither comes free over plain HTTP, so both are rebuilt here:
+//   • the other parent's changes arrive by polling, plus an immediate refetch
+//     whenever the app is brought back to the foreground;
+//   • local writes apply to the screen instantly and go into a durable outbox
+//     that drains when the connection returns.
 // ─────────────────────────────────────────────────────────────────────────────
-function initFirebase() {
-  const root = db.ref('wesworld');
+const BUCKET = { feed: 'feedLogs', sleep: 'sleepLogs', weight: 'weightLogs' };
+const POLL_MS = 45000;
 
-  // Listen for all shared data changes
-  root.on('value', snapshot => {
-    handleSnapshot(snapshot);
-  }, error => {
-    // Permission denied or other read failure — show it instead of hanging
+function setSyncBadge(online) {
+  const el = document.getElementById('navSync');
+  if (el) el.innerHTML = online
+    ? `<span class="sync-dot" style="background:var(--green)"></span>Live`
+    : `<span class="sync-dot" style="background:var(--red)"></span>Offline`;
+  document.getElementById('offlineBadge').classList.toggle('show', !online);
+}
+
+async function apiFetch(path, options) {
+  const opts = Object.assign({ credentials: 'same-origin' }, options || {});
+  if (opts.body) opts.headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {});
+  const res = await fetch(path, opts);
+  let body = null;
+  try { body = await res.json(); } catch (e) { body = null; }
+  if (!res.ok) {
+    const err = new Error((body && body.error) || ('Request failed (' + res.status + ')'));
+    err.status = res.status;
+    err.body = body;
+    throw err;
+  }
+  return body;
+}
+
+async function pullState() {
+  const data = await apiFetch('/api/state');
+  shared.feedLogs = data.feedLogs || [];
+  shared.sleepLogs = data.sleepLogs || [];
+  shared.weightLogs = data.weightLogs || [];
+  shared.achieved = data.achieved || {};
+  // Anything still waiting to be sent must survive a refetch, or a write made
+  // offline would blink out of the UI the moment the connection returns.
+  outbox.forEach(applyOp);
+}
+
+// ── Outbox ───────────────────────────────────────────────────────────────────
+const OUTBOX_KEY = 'wesworld.outbox.v1';
+let outbox = loadOutbox();
+let flushing = false;
+
+function loadOutbox() {
+  try { return JSON.parse(localStorage.getItem(OUTBOX_KEY)) || []; } catch (e) { return []; }
+}
+function saveOutbox() {
+  try { localStorage.setItem(OUTBOX_KEY, JSON.stringify(outbox)); } catch (e) {}
+}
+
+// Applies an operation to the in-memory state, so the screen updates before the
+// network does. Adds go to the front because the arrays are newest-first.
+function applyOp(op) {
+  if (op.t === 'add') {
+    const arr = shared[BUCKET[op.kind]];
+    if (arr && !arr.some(r => r._key === op.id)) arr.unshift(Object.assign({}, op.data, { _key: op.id }));
+  } else if (op.t === 'update') {
+    const row = (shared[BUCKET[op.kind]] || []).find(r => r._key === op.id);
+    if (row) Object.assign(row, op.data);
+  } else if (op.t === 'delete') {
+    const b = BUCKET[op.kind];
+    if (shared[b]) shared[b] = shared[b].filter(r => r._key !== op.id);
+  } else if (op.t === 'achieved') {
+    if (op.date == null) delete shared.achieved[op.id];
+    else shared.achieved[op.id] = op.date;
+  }
+}
+
+function mutate(op) {
+  queueOp(op);
+  commitQueued();
+}
+
+// Split from mutate() so a bulk import can stage hundreds of operations and pay
+// for the save and the re-render once, rather than once per row.
+function queueOp(op) {
+  applyOp(op);
+  outbox.push(op);
+}
+function commitQueued() {
+  saveOutbox();
+  render();
+  flushOutbox();
+}
+
+function newId() {
+  if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  return 'id-' + Date.now() + '-' + Math.random().toString(16).slice(2);
+}
+
+function sendOp(op) {
+  const base = '/api/entries/' + op.kind;
+  if (op.t === 'add') return apiFetch(base, { method: 'POST', body: JSON.stringify(Object.assign({ id: op.id }, op.data)) });
+  if (op.t === 'update') return apiFetch(base + '/' + encodeURIComponent(op.id), { method: 'PATCH', body: JSON.stringify(op.data) });
+  if (op.t === 'delete') return apiFetch(base + '/' + encodeURIComponent(op.id), { method: 'DELETE' });
+  if (op.t === 'achieved') return apiFetch('/api/achieved', { method: 'POST', body: JSON.stringify({ id: op.id, date: op.date }) });
+  return Promise.resolve();
+}
+
+async function flushOutbox() {
+  if (flushing || !outbox.length) return;
+  if (navigator.onLine === false) { setSyncBadge(false); return; }
+  flushing = true;
+  let sentAny = false;
+  try {
+    while (outbox.length) {
+      const op = outbox[0];
+      try {
+        await sendOp(op);
+        outbox.shift();
+        saveOutbox();
+        sentAny = true;
+      } catch (err) {
+        // 401/403 mean the session lapsed — keep the write and retry after
+        // signing in again. Any other 4xx will never succeed no matter how
+        // often it is retried, so drop it rather than wedging the queue behind
+        // one bad row forever.
+        const s = err.status || 0;
+        if (s >= 400 && s < 500 && s !== 401 && s !== 403) {
+          console.warn('Dropping unsendable change', op, err.message);
+          outbox.shift();
+          saveOutbox();
+          continue;
+        }
+        setSyncBadge(false);
+        return;
+      }
+    }
+    setSyncBadge(true);
+    if (sentAny) { await pullState(); render(); }
+  } finally {
+    flushing = false;
+  }
+}
+
+// ── Load and refresh ─────────────────────────────────────────────────────────
+async function initBackend() {
+  try {
+    await pullState();
+  } catch (err) {
+    const hint = (err.status === 401 || err.status === 403)
+      ? 'Your account is signed in but not invited yet.'
+      : 'Check that the Static Web App has COSMOS_CONNECTION_STRING configured.';
     document.getElementById('loadingMsg').innerHTML =
-      '⚠️ Could not read the database:<br><strong>' + (error && error.message || error) + '</strong><br>' +
-      '<span style="font-size:11px">Check the Realtime Database rules in your Firebase console.</span>';
+      '⚠️ Could not load data:<br><strong>' + esc(err.message) + '</strong><br>' +
+      '<span style="font-size:11px">' + esc(hint) + '</span>';
     const spinner = document.querySelector('.loading-spinner');
     if (spinner) spinner.style.display = 'none';
-  });
+    return;
+  }
 
-  // Connection state
-  db.ref('.info/connected').on('value', snap => {
-    const connected = snap.val();
-    document.getElementById('navSync').innerHTML = connected
-      ? `<span class="sync-dot" style="background:var(--sage)"></span>Live`
-      : `<span class="sync-dot" style="background:var(--red)"></span>Offline`;
-    document.getElementById('offlineBadge').classList.toggle('show', !connected);
-  });
+  if (!initialLoadDone) {
+    initialLoadDone = true;
+    if (!shared.feedLogs.length) {
+      makeSeedFeeds().forEach(f => {
+        const id = newId();
+        outbox.push({ t: 'add', kind: 'feed', id: id, data: f });
+        applyOp({ t: 'add', kind: 'feed', id: id, data: f });
+      });
+      saveOutbox();
+    }
+    document.getElementById('loadingScreen').classList.add('hidden');
+    backendReady = true;
+  }
+
+  setSyncBadge(navigator.onLine !== false);
+  flashSync();
+  render();
+  startSyncLoop();
+  flushOutbox();
 }
 
-function handleSnapshot(snapshot) {
-    const data = snapshot.val();
-    if (data) {
-      if (data.feedLogs) shared.feedLogs = objToArr(data.feedLogs);
-      if (data.sleepLogs) shared.sleepLogs = objToArr(data.sleepLogs);
-      if (data.weightLogs) shared.weightLogs = objToArr(data.weightLogs);
-      if (data.targets) {
-        shared.targetWeightKg = data.targets.weightKg ?? shared.targetWeightKg;
-        shared.targetLowMlKg = data.targets.lowMlKg ?? shared.targetLowMlKg;
-        shared.targetHighMlKg = data.targets.highMlKg ?? shared.targetHighMlKg;
-        ui.showConfig && (ui.showConfig = false);
-      }
-      if (data.achieved) shared.achieved = data.achieved;
-    }
-
-    // First load: seed feed data if empty
-    if (!initialLoadDone) {
-      initialLoadDone = true;
-      if (!data || !data.feedLogs) {
-        const seeds = makeSeedFeeds();
-        seeds.forEach(f => db.ref('wesworld/feedLogs').push(f));
-      }
-      document.getElementById('loadingScreen').classList.add('hidden');
-      firebaseReady = true;
-    }
-
-    flashSync();
+async function refresh() {
+  if (!backendReady || document.hidden) return;
+  if (outbox.length) return flushOutbox();
+  try {
+    await pullState();
+    setSyncBadge(true);
     render();
+  } catch (err) {
+    setSyncBadge(false);
+  }
 }
 
-// Convert Firebase object (keyed by push ID) to sorted array
-function objToArr(obj) {
-  if (!obj) return [];
-  return Object.entries(obj)
-    .map(([key, val]) => ({...val, _key: key}))
-    .sort((a,b) => (b.ts||0) - (a.ts||0));  // newest first
+function startSyncLoop() {
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(refresh, POLL_MS);
+  // Coming back to the app is the moment the other parent's changes matter, so
+  // do not make the user wait out the poll interval for them.
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
+  window.addEventListener('focus', refresh);
+  window.addEventListener('online', () => { setSyncBadge(true); flushOutbox(); refresh(); });
+  window.addEventListener('offline', () => setSyncBadge(false));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1574,11 +1684,13 @@ const GROWTH_METRICS={
 // Attribution comes from the signed-in account, so logs stay attributed
 // without the prototype needing a Mom/Dad selector.
 function loggerName(){
-  const u=auth.currentUser;
+  const u=currentUser;
   if(!u)return 'Someone';
-  if(u.displayName)return u.displayName.split(' ')[0];
-  if(u.email)return u.email.split('@')[0];
-  return 'Someone';
+  // Static Web Apps gives one `userDetails` string: an email for Microsoft
+  // accounts, a username for GitHub.
+  const d=u.userDetails||'';
+  if(d.includes('@'))return d.split('@')[0];
+  return d||'Someone';
 }
 
 let weekCache={sleep:[],feed:[],growthDots:[],growthRange:null,scatter:null};
@@ -1791,7 +1903,7 @@ function chipHtml(label,active,color,onclick,sm){
 }
 
 function render(){
-  if(!firebaseReady)return;
+  if(!backendReady)return;
   growthChartCtx=null;   // only the growth tab re-populates this
   const ages=getAges();
   const corrMonths=ages.corrWeeks/4.33;
@@ -2614,15 +2726,16 @@ function saveEdit(){
     if(val<=0){showToast(isBottle?'Enter an amount':'Enter a duration');return;}
     const when=dateTimeFrom(e.date,e.time);
     if(isNaN(when.getTime())){showToast('Pick a valid date');return;}
-    db.ref('wesworld/feedLogs/'+e.key).update({
+    mutate({t:'update',kind:'feed',id:e.key,data:{
       type:isBottle?'bottle':'breast',
-      // null clears the field that no longer applies after a type switch
+      // null blanks the field that no longer applies after a type switch; the
+      // readers all guard with `|| 0`, so a null reads as absent.
       amt:isBottle?Math.round(val*10)/10:null,
       duration:isBottle?null:Math.round(val),
       time:when.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),
       date:MONTHS[when.getMonth()]+' '+when.getDate(),
       ts:when.getTime()
-    });
+    }});
   } else if(e.kind==='growth'){
     if(!saveEditGrowth(e))return;
   } else {
@@ -2633,12 +2746,12 @@ function saveEdit(){
     const when=dateTimeFrom(e.date,e.start);
     if(isNaN(when.getTime())){showToast('Pick a valid date');return;}
     const startHour=sh+sm/60;
-    db.ref('wesworld/sleepLogs/'+e.key).update({
+    mutate({t:'update',kind:'sleep',id:e.key,data:{
       type:(startHour>=19||startHour<6)?'night':'nap',
       start:e.start,end:e.end,hours:Math.round(hrs*10)/10,
       date:MONTHS[when.getMonth()]+' '+when.getDate(),
       ts:when.getTime()
-    });
+    }});
   }
   // The selection holds a snapshot of the old values, so drop it.
   ui.selectedFeedMarker=null;ui.selectedSleepBlock=null;ui.selectedGrowthPoint=null;
@@ -2778,15 +2891,10 @@ function openImport(){
 function removeSeedFeeds(){
   const seed=seedFeeds();
   if(!seed.length)return;
-  const updates={};
-  seed.forEach(f=>updates['feedLogs/'+f._key]=null);
-  db.ref('wesworld').update(updates)
-    .then(()=>{
-      showToast('Removed '+seed.length+' demo feeds ✓');
-      document.getElementById('importSummary').innerHTML='';
-    })
-    .catch(e=>{document.getElementById('importSummary').innerHTML=
-      `<div class="summary-warn">Couldn't remove them: ${esc(e.message)}</div>`;});
+  seed.forEach(f=>queueOp({t:'delete',kind:'feed',id:f._key}));
+  commitQueued();
+  showToast('Removed '+seed.length+' demo feeds ✓');
+  document.getElementById('importSummary').innerHTML='';
 }
 function closeImport(){
   document.getElementById('importModal').classList.remove('visible');
@@ -2839,32 +2947,22 @@ function runImport(){
   const btn=document.getElementById('importGo');
   btn.disabled=true;btn.textContent='Importing…';
   const clear=document.getElementById('importClearSeed');
-  const updates={};
-  importPayload.feeds.forEach(x=>updates['feedLogs/'+x.key]=x.val);
-  importPayload.sleeps.forEach(x=>updates['sleepLogs/'+x.key]=x.val);
-  importPayload.growth.forEach(x=>updates['weightLogs/'+x.key]=x.val);
+  // The import keys are derived from the row's timestamp, and the API upserts
+  // on a supplied id, so re-importing the same export updates rows in place
+  // instead of duplicating them.
+  importPayload.feeds.forEach(x=>queueOp({t:'add',kind:'feed',id:x.key,data:x.val}));
+  importPayload.sleeps.forEach(x=>queueOp({t:'add',kind:'sleep',id:x.key,data:x.val}));
+  importPayload.growth.forEach(x=>queueOp({t:'add',kind:'weight',id:x.key,data:x.val}));
   if(clear&&clear.checked){
-    // objToArr exposes the Firebase key as _key, not key.
-    shared.feedLogs.forEach(f=>{if(f.by==='Seed'&&f._key)updates['feedLogs/'+f._key]=null;});
+    shared.feedLogs.forEach(f=>{if(f.by==='Seed'&&f._key)queueOp({t:'delete',kind:'feed',id:f._key});});
   }
-  const entries=Object.entries(updates);
-  // Chunked so a large export doesn't go out as one oversized payload.
-  const step=i=>{
-    if(i>=entries.length){
-      btn.disabled=false;btn.textContent='Import';
-      showToast('Imported '+(importPayload.feeds.length+importPayload.sleeps.length+importPayload.growth.length)+' records ✓');
-      closeImport();return;
-    }
-    const chunk={};entries.slice(i,i+400).forEach(([k,v])=>chunk[k]=v);
-    db.ref('wesworld').update(chunk)
-      .then(()=>step(i+400))
-      .catch(e=>{
-        btn.disabled=false;btn.textContent='Import';
-        document.getElementById('importSummary').innerHTML=
-          `<div class="summary-warn">Import failed: ${esc(e.message)}</div>`;
-      });
-  };
-  step(0);
+  const total=importPayload.feeds.length+importPayload.sleeps.length+importPayload.growth.length;
+  commitQueued();
+  btn.disabled=false;btn.textContent='Import';
+  // The rows are already on screen; the outbox drains them to Cosmos in the
+  // background, and the Live/Offline badge reports how that is going.
+  showToast('Imported '+total+' records ✓');
+  closeImport();
 }
 function setTab(t){ui.tab=t;render();window.scrollTo(0,0);}
 function setUI(k,v){ui[k]=v;render();}
@@ -2884,15 +2982,15 @@ function addFeed(){
     by:loggerName(),ts:when.getTime()
   };
   if(isBottle) log.amt=Math.round(val*10)/10; else log.duration=Math.round(val);
-  db.ref('wesworld/feedLogs').push(log);
+  mutate({t:'add',kind:'feed',id:newId(),data:log});
   ui.feedAmt='';
-  showToast('Feed logged ✓');render();
+  showToast('Feed logged ✓');
   return true;
 }
 
 function deleteFeed(key){
   if(!key||key==='undefined')return;
-  db.ref('wesworld/feedLogs/'+key).remove();
+  mutate({t:'delete',kind:'feed',id:key});
   showToast('Entry removed');
 }
 
@@ -2908,19 +3006,19 @@ function addSleep(){
   // stretch stays on one night rather than splitting across two.
   const when=dateTimeFrom(ui.sleepDate,ui.sleepStart);
   if(isNaN(when.getTime())){showToast('Pick a valid date');return false;}
-  db.ref('wesworld/sleepLogs').push({
+  mutate({t:'add',kind:'sleep',id:newId(),data:{
     type,start:ui.sleepStart,end:ui.sleepEnd,
     hours:Math.round(hrs*10)/10,
     date:MONTHS[when.getMonth()]+' '+when.getDate(),
     by:loggerName(),ts:when.getTime()
-  });
-  showToast('Sleep logged ✓');render();
+  }});
+  showToast('Sleep logged ✓');
   return true;
 }
 
 function deleteSleep(key){
   if(!key||key==='undefined')return;
-  db.ref('wesworld/sleepLogs/'+key).remove();
+  mutate({t:'delete',kind:'sleep',id:key});
 }
 
 // Adding and editing derive age the same way, so re-saving a row can't quietly
@@ -2952,9 +3050,9 @@ function addMeasurement(){
   }
   if(lenIn>0) entry.lenCm=Math.round(lenIn*2.54*10)/10;
   if(hcIn>0) entry.hcCm=Math.round(hcIn*2.54*10)/10;
-  db.ref('wesworld/weightLogs').push(entry);
+  mutate({t:'add',kind:'weight',id:newId(),data:entry});
   ui.newWeightLb='';ui.newWeightOz='';ui.newLength='';ui.newHeadCirc='';
-  showToast('Measurement logged ✓');render();
+  showToast('Measurement logged ✓');
   return true;
 }
 
@@ -2966,30 +3064,30 @@ function saveEditGrowth(e){
   if(isNaN(d.getTime())){showToast('Pick a valid date');return false;}
   const ages=measurementAges(d);
   const totalLb=lb+oz/16;
-  db.ref('wesworld/weightLogs/'+e.key).update({
+  mutate({t:'update',kind:'weight',id:e.key,data:{
     date:MONTHS[d.getMonth()]+' '+d.getDate(),
     gaWeeks:ages.gaWeeks,corrMonths:ages.corrMonths,ts:d.getTime(),
-    // null clears a measurement this row no longer carries
+    // null blanks a measurement this row no longer carries
     kg:totalLb>0?Math.round(totalLb*0.45359237*100)/100:null,
     lbs:totalLb>0?Math.round(totalLb*10)/10:null,
     lenCm:lenIn>0?Math.round(lenIn*2.54*10)/10:null,
     hcCm:hcIn>0?Math.round(hcIn*2.54*10)/10:null
-  });
+  }});
   return true;
 }
 
 function deleteMeasurement(key){
   if(!key||key==='undefined')return;
-  db.ref('wesworld/weightLogs/'+key).remove();
+  mutate({t:'delete',kind:'weight',id:key});
   showToast('Entry removed');
 }
 
 function toggleMs(id){
   if(shared.achieved[id]){
-    db.ref('wesworld/achieved/'+id).remove();
+    mutate({t:'achieved',id:id,date:null});
     showToast('Milestone unmarked');
   } else {
-    db.ref('wesworld/achieved/'+id).set(todayStr());
+    mutate({t:'achieved',id:id,date:todayStr()});
     showToast('Milestone achieved! 🎉');
   }
 }
@@ -3002,8 +3100,9 @@ if('serviceWorker' in navigator){
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// BOOT — handled by auth.onAuthStateChanged above; nothing to do here.
+// BOOT — ask the platform who is signed in, then load.
 // ─────────────────────────────────────────────────────────────────────────────
+startSession();
 </script>
 </body>
 </html>

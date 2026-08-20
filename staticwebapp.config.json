@@ -1,4 +1,5 @@
 {
+  "platform": { "apiRuntime": "node:20" },
   "navigationFallback": {
     "rewrite": "/index.html",
     "exclude": ["/*.{png,json,js,webmanifest}"]
@@ -8,6 +9,18 @@
     ".webmanifest": "application/manifest+json"
   },
   "routes": [
+    {
+      "route": "/api/*",
+      "allowedRoles": ["family"]
+    },
+    {
+      "route": "/.auth/login/twitter",
+      "statusCode": 404
+    },
+    {
+      "route": "/.auth/login/facebook",
+      "statusCode": 404
+    },
     {
       "route": "/index.html",
       "headers": { "cache-control": "no-cache, max-age=0, must-revalidate" }
