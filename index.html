@@ -873,12 +873,31 @@ const WHO_BOYS_HC=tableFromBase(WHO_HC_BASE,HC_RATIOS_WHO);
 const FENTON_BOYS_HC=tableFromBase(FENTON_HC_BASE,HC_RATIOS_FENTON);
 
 function ordinal(n){const s=['th','st','nd','rd'],v=n%100;return n+(s[(v-20)%10]||s[v]||s[0]);}
+// The published tables list a row per whole month (WHO) or week (Fenton), but a
+// measurement lands between rows. The chart draws each percentile curve as a
+// straight line between table ages, so reading the label off the row below the
+// measurement disagreed with where the dot visibly sat — a 3.2 kg boy at 0.7mo
+// corrected plots just above the 3rd but was labelled 36th, because he was
+// scored against the birth row. Interpolate the whole row to the exact age
+// first, so every percentile in the app matches the curve it is drawn against.
+function pctRowAt(src,keys,x){
+  if(!keys.length)return null;
+  const first=keys[0],last=keys[keys.length-1];
+  // Past the end of the table there is no curve to score against — the chart
+  // drops those points, so the label says so rather than reusing the last row.
+  if(x>last+1e-9)return null;
+  if(!(x>first))return src[first];
+  let i=0;while(i<keys.length-1&&keys[i+1]<=x)i++;
+  if(i>=keys.length-1)return src[last];
+  const a=src[keys[i]],b=src[keys[i+1]],f=(x-keys[i])/(keys[i+1]-keys[i]),row={};
+  Object.keys(a).forEach(k=>{if(a[k]!=null&&b[k]!=null)row[k]=a[k]+f*(b[k]-a[k]);});
+  return row;
+}
 // Interpolates between the published bands for an exact percentile ("42nd")
 // rather than reporting a range ("25–50th").
 function getPctLabel(val,src,keys,x){
   if(val==null||isNaN(val))return 'N/A';
-  let k=keys[0];for(const kk of keys) if(kk<=x) k=kk;
-  const p=src[k];if(!p)return 'N/A';
+  const p=pctRowAt(src,keys,x);if(!p)return 'N/A';
   const bands=[[3,'p3'],[10,'p10'],[25,'p25'],[50,'p50'],[75,'p75'],[90,'p90'],[97,'p97']]
     .filter(b=>p[b[1]]!=null);
   if(!bands.length)return 'N/A';
@@ -1330,7 +1349,14 @@ function buildGrowthChart(logs,mode,valueKey,tables,fmt,axisFmt,viewLo,viewHi){
   const minX=viewLo!=null?viewLo:fullMin,maxX=viewHi!=null?viewHi:fullMax;
   const src=mode==='fenton'?tables.fenton:tables.who;
   const allKeys=Object.keys(src).map(Number).sort((a,b)=>a-b);
-  const srcKeys=allKeys.filter(k=>k>=minX&&k<=maxX);
+  // The curves are sampled at every table age inside the view plus the two view
+  // edges, so a zoomed range still draws a full-width curve instead of stopping
+  // at the innermost table row and leaving the dots with nothing behind them.
+  const tblLo=allKeys[0],tblHi=allKeys[allKeys.length-1];
+  const edgeLo=Math.max(tblLo,Math.min(tblHi,minX)),edgeHi=Math.max(tblLo,Math.min(tblHi,maxX));
+  const curveXs=[edgeLo,...allKeys.filter(k=>k>edgeLo&&k<edgeHi),edgeHi]
+    .filter((v,i,a)=>i===0||v>a[i-1]);
+  const curveRows=curveXs.map(x=>({x,row:pctRowAt(src,allKeys,x)})).filter(r=>r.row);
   // Fenton stops at 44w, so later measurements have no curve to sit against —
   // drop out-of-view points rather than drawing them outside the plot area.
   const pts=logs.filter(w=>{
@@ -1338,8 +1364,7 @@ function buildGrowthChart(logs,mode,valueKey,tables,fmt,axisFmt,viewLo,viewHi){
     const x=mode==='fenton'?w.gaWeeks:w.corrMonths;
     return x!=null&&!isNaN(x)&&x>=minX&&x<=maxX;
   });
-  const curveKeys=srcKeys.length?srcKeys:allKeys;
-  const curveMax=Math.max(...curveKeys.map(k=>src[k].p97));
+  const curveMax=Math.max(...curveRows.map(r=>r.row.p97).filter(v=>v!=null));
   const maxY=Math.max(...pts.map(w=>w[valueKey]),curveMax)*1.08,minY=0;
   const xS=v=>P.l+((v-minX)/(maxX-minX))*iW;
   const yS=v=>P.t+iH-((v-minY)/(maxY-minY))*iH;
@@ -1369,12 +1394,12 @@ function buildGrowthChart(logs,mode,valueKey,tables,fmt,axisFmt,viewLo,viewHi){
       {pct:'p10',stroke:'#8FADE8',sw:'1.2',dash:'5 3',label:'10th',fw:'400'},
       {pct:'p3',stroke:'#B9CCEF',sw:'1.2',dash:'5 3',label:'3rd',fw:'400'}];
   const curves=curveDefs.map(({pct,stroke,sw,dash,label,fw})=>{
-    const vk=curveKeys.filter(k=>src[k][pct]!=null);
-    if(!vk.length)return {points:'',stroke,sw,dash,label,fw,leftPct:'0',topPct:'0'};
-    const points=vk.map(k=>`${xS(k).toFixed(1)},${yS(src[k][pct]).toFixed(1)}`).join(' ');
-    const lk=vk[vk.length-1];
+    const vr=curveRows.filter(r=>r.row[pct]!=null);
+    if(!vr.length)return {points:'',stroke,sw,dash,label,fw,leftPct:'0',topPct:'0'};
+    const points=vr.map(r=>`${xS(r.x).toFixed(1)},${yS(r.row[pct]).toFixed(1)}`).join(' ');
+    const lr=vr[vr.length-1];
     return {points,stroke,sw,dash,label,fw,
-      leftPct:((xS(lk)+3)/W*100).toFixed(1),topPct:((yS(src[lk][pct])+3.5)/H*100).toFixed(1)};
+      leftPct:((xS(lr.x)+3)/W*100).toFixed(1),topPct:((yS(lr.row[pct])+3.5)/H*100).toFixed(1)};
   });
   const valPoints=pts.map(w=>{const x=mode==='fenton'?w.gaWeeks:w.corrMonths;
     return `${xS(x).toFixed(1)},${yS(w[valueKey]).toFixed(1)}`;}).join(' ');
@@ -1387,7 +1412,7 @@ function buildGrowthChart(logs,mode,valueKey,tables,fmt,axisFmt,viewLo,viewHi){
       ?`${Math.floor(w.gaWeeks)}w ${Math.round((w.gaWeeks-Math.floor(w.gaWeeks))*7)}d GA`
       :`${(+w.corrMonths||0).toFixed(1)}mo corrected`;
     return {cx:xS(x).toFixed(1),cy:yS(w[valueKey]).toFixed(1),
-      date:w.date,valueText,pct,ageLabel};
+      date:w.date,valueText,pct,ageLabel,key:w._key};
   });
   return {W,H,padL:P.l,padR:P.r,gridLines,xTicks,curves,valPoints,valDots,
     xAxisLabel:mode==='fenton'?'Gestational age (weeks)':'Corrected age (months)'};
@@ -1620,7 +1645,8 @@ function sleepSelBlockHtml(){
 function selectGrowthPoint(i){
   const d=weekCache.growthDots[i];
   if(!d)return;
-  ui.selectedGrowthPoint={date:d.date,ageLabel:d.ageLabel,valueText:d.valueText,pct:d.pct};
+  ui.selectedGrowthPoint={date:d.date,ageLabel:d.ageLabel,valueText:d.valueText,
+    pct:d.pct,key:d.key};
   render();
 }
 function zoomGrowth(dir){
@@ -1999,6 +2025,7 @@ function render(){
         ${ui.selectedGrowthPoint?`<div class="sel-block">
           <span class="sel-dot" style="background:#2F6FED"></span>
           <span>${esc(ui.selectedGrowthPoint.date)} · ${esc(ui.selectedGrowthPoint.ageLabel)} · ${esc(ui.selectedGrowthPoint.valueText)} · ${esc(ui.selectedGrowthPoint.pct)} percentile</span>
+          ${ui.selectedGrowthPoint.key?`<button class="btn-edit" onclick="openEditGrowth('${ui.selectedGrowthPoint.key}')">Edit</button>`:''}
         </div>`:''}
         ${growthChartHtml(gc)}
         <div class="gc-legend">
@@ -2024,7 +2051,7 @@ function render(){
               ?`${Math.floor(w.gaWeeks)}w ${Math.round((w.gaWeeks-Math.floor(w.gaWeeks))*7)}d GA`
               :`${(+w.corrMonths||0).toFixed(1)}mo corrected`;
             return `<div class="log-row">
-              <div class="log-main">
+              <div class="log-main${w._key?' log-edit':''}"${w._key?` onclick="openEditGrowth('${w._key}')"`:''}>
                 <div class="log-label">${esc(w.date)} — ${has?esc(metric.fmt(w[metric.key])):'not recorded'}</div>
                 <div class="log-meta">${esc(ageLabel)}</div>
               </div>
@@ -2486,6 +2513,23 @@ function openEditSleep(key){
     start:s.start||'',end:s.end||''};
   renderEditModal();
 }
+function openEditGrowth(key){
+  const w=shared.weightLogs.find(x=>x._key===key);
+  if(!w){showToast('Entry not found');return;}
+  // Stored in kg/cm, entered in lb/oz/in — unpack the same way addMeasurement packs.
+  let lb='',oz='';
+  if(w.kg!=null&&!isNaN(w.kg)){
+    const totalLb=w.kg/0.45359237;
+    lb=Math.floor(totalLb);oz=Math.round((totalLb-lb)*16);
+    if(oz===16){oz=0;lb+=1;}
+  }
+  ui.edit={kind:'growth',key,
+    lb:String(lb),oz:String(oz),
+    len:w.lenCm!=null&&!isNaN(w.lenCm)?(w.lenCm/2.54).toFixed(1):'',
+    hc:w.hcCm!=null&&!isNaN(w.hcCm)?(w.hcCm/2.54).toFixed(1):'',
+    date:isoFromDate(w.ts?new Date(w.ts):new Date())};
+  renderEditModal();
+}
 function setEditField(k,v){ui.edit[k]=v;}
 function setEditType(t){
   if(ui.edit&&ui.edit.type!==t){ui.edit.type=t;ui.edit.amt=(t==='breast')?'15':'';}
@@ -2496,14 +2540,30 @@ function closeEdit(){
   document.getElementById('editModal').classList.remove('visible');
   document.getElementById('editModalBody').innerHTML='';
 }
+const EDIT_TITLES={feed:'feed',sleep:'sleep',growth:'measurement'};
 function renderEditModal(){
   const e=ui.edit;if(!e)return;
   const isFeed=e.kind==='feed';
   const isBottle=e.type!=='breast';
   document.getElementById('editModalBody').innerHTML=`
-    <div class="modal-title">Edit ${isFeed?'feed':'sleep'}</div>
+    <div class="modal-title">Edit ${EDIT_TITLES[e.kind]||'entry'}</div>
     <div class="modal-sub">Changes save straight to your log.</div>
-    ${isFeed?`
+    ${e.kind==='growth'?`
+      <div class="fields">
+        <div class="field"><label>Weight (lb)</label>
+          <input type="number" style="width:74px" value="${esc(e.lb)}" oninput="setEditField('lb',this.value)"/></div>
+        <div class="field"><label>(oz)</label>
+          <input type="number" style="width:74px" value="${esc(e.oz)}" oninput="setEditField('oz',this.value)"/></div>
+        <div class="field"><label>Length (in)</label>
+          <input type="number" step="0.1" style="width:84px" value="${esc(e.len)}" oninput="setEditField('len',this.value)"/></div>
+        <div class="field"><label>Head circ. (in)</label>
+          <input type="number" step="0.1" style="width:90px" value="${esc(e.hc)}" oninput="setEditField('hc',this.value)"/></div>
+        <div class="field"><label>Date</label>
+          <input type="date" value="${esc(e.date)}" oninput="setEditField('date',this.value)"/></div>
+      </div>
+      <div class="summary-note">Clear a field to drop that measurement. Corrected and
+        gestational age are recalculated from the date.</div>`
+    :isFeed?`
       <div class="chip-row">
         ${chipHtml('Bottle',isBottle,'#2F6FED',"setEditType('bottle')")}
         ${chipHtml('Breast',!isBottle,'#2F6FED',"setEditType('breast')")}
@@ -2540,8 +2600,10 @@ function renderEditModal(){
 }
 function deleteFromEdit(){
   const e=ui.edit;if(!e)return;
-  if(e.kind==='feed')deleteFeed(e.key); else deleteSleep(e.key);
-  ui.selectedFeedMarker=null;ui.selectedSleepBlock=null;
+  if(e.kind==='feed')deleteFeed(e.key);
+  else if(e.kind==='growth')deleteMeasurement(e.key);
+  else deleteSleep(e.key);
+  ui.selectedFeedMarker=null;ui.selectedSleepBlock=null;ui.selectedGrowthPoint=null;
   closeEdit();render();
 }
 function saveEdit(){
@@ -2561,6 +2623,8 @@ function saveEdit(){
       date:MONTHS[when.getMonth()]+' '+when.getDate(),
       ts:when.getTime()
     });
+  } else if(e.kind==='growth'){
+    if(!saveEditGrowth(e))return;
   } else {
     if(!e.start||!e.end){showToast('Set start and end time');return;}
     const [sh,sm]=e.start.split(':').map(Number);
@@ -2577,7 +2641,7 @@ function saveEdit(){
     });
   }
   // The selection holds a snapshot of the old values, so drop it.
-  ui.selectedFeedMarker=null;ui.selectedSleepBlock=null;
+  ui.selectedFeedMarker=null;ui.selectedSleepBlock=null;ui.selectedGrowthPoint=null;
   closeEdit();showToast('Saved ✓');render();
 }
 
@@ -2859,6 +2923,15 @@ function deleteSleep(key){
   db.ref('wesworld/sleepLogs/'+key).remove();
 }
 
+// Adding and editing derive age the same way, so re-saving a row can't quietly
+// move it along the curve.
+function measurementAges(d){
+  const chronoDays=Math.floor((d-BIRTH)/864e5);
+  const totalGADays=BIRTH_GA_WEEKS*7+BIRTH_GA_DAYS+chronoDays;
+  return {gaWeeks:parseFloat((totalGADays/7).toFixed(1)),
+    corrMonths:parseFloat((Math.max(0,totalGADays-280)/30.44).toFixed(2))};
+}
+
 function addMeasurement(){
   const lb=parseFloat(ui.newWeightLb)||0, oz=parseFloat(ui.newWeightOz)||0;
   const lenIn=parseFloat(ui.newLength)||0, hcIn=parseFloat(ui.newHeadCirc)||0;
@@ -2866,12 +2939,10 @@ function addMeasurement(){
   const iso=ui.newMeasureDate||todayISO();
   const d=new Date(iso+'T00:00:00');
   if(isNaN(d.getTime())){showToast('Pick a valid date');return false;}
-  const chronoDays=Math.floor((d-BIRTH)/864e5);
-  const totalGADays=BIRTH_GA_WEEKS*7+BIRTH_GA_DAYS+chronoDays;
+  const ages=measurementAges(d);
   const entry={
     date:MONTHS[d.getMonth()]+' '+d.getDate(),
-    gaWeeks:parseFloat((totalGADays/7).toFixed(1)),
-    corrMonths:parseFloat((Math.max(0,totalGADays-280)/30.44).toFixed(2)),
+    gaWeeks:ages.gaWeeks,corrMonths:ages.corrMonths,
     by:loggerName(),ts:d.getTime()
   };
   if(lb>0||oz>0){
@@ -2885,6 +2956,32 @@ function addMeasurement(){
   ui.newWeightLb='';ui.newWeightOz='';ui.newLength='';ui.newHeadCirc='';
   showToast('Measurement logged ✓');render();
   return true;
+}
+
+function saveEditGrowth(e){
+  const lb=parseFloat(e.lb)||0, oz=parseFloat(e.oz)||0;
+  const lenIn=parseFloat(e.len)||0, hcIn=parseFloat(e.hc)||0;
+  if(lb<=0&&oz<=0&&lenIn<=0&&hcIn<=0){showToast('Enter at least one measurement');return false;}
+  const d=new Date((e.date||todayISO())+'T00:00:00');
+  if(isNaN(d.getTime())){showToast('Pick a valid date');return false;}
+  const ages=measurementAges(d);
+  const totalLb=lb+oz/16;
+  db.ref('wesworld/weightLogs/'+e.key).update({
+    date:MONTHS[d.getMonth()]+' '+d.getDate(),
+    gaWeeks:ages.gaWeeks,corrMonths:ages.corrMonths,ts:d.getTime(),
+    // null clears a measurement this row no longer carries
+    kg:totalLb>0?Math.round(totalLb*0.45359237*100)/100:null,
+    lbs:totalLb>0?Math.round(totalLb*10)/10:null,
+    lenCm:lenIn>0?Math.round(lenIn*2.54*10)/10:null,
+    hcCm:hcIn>0?Math.round(hcIn*2.54*10)/10:null
+  });
+  return true;
+}
+
+function deleteMeasurement(key){
+  if(!key||key==='undefined')return;
+  db.ref('wesworld/weightLogs/'+key).remove();
+  showToast('Entry removed');
 }
 
 function toggleMs(id){
