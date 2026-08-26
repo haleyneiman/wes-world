@@ -85,8 +85,11 @@ Then:
    | `COSMOS_DATABASE` | `wesworld` *(optional, this is the default)* |
    | `COSMOS_CONTAINER` | `entries` *(optional, this is the default)* |
 
-If `node:20` is rejected for the API runtime, change `platform.apiRuntime` in
-`staticwebapp.config.json` to `node:18`.
+The API runs on `node:20`, set by `platform.apiRuntime` in
+`staticwebapp.config.json`. Supported values are `node:18`, `node:20` and
+`node:22`, so nothing needs changing — but if the API ever misbehaves, that is
+where the runtime is declared, and the portal shows what the app actually picked
+under **Settings → Configuration**.
 
 ## 3. Invite yourselves
 
