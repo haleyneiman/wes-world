@@ -489,13 +489,17 @@ async function startSession() {
   currentUser = await loadIdentity();
   if (!currentUser) return showLogin('');
   if (!currentUser.roles.includes(FAMILY_ROLE)) {
-    // Spell out the user id, because granting the role means pasting exactly
-    // this value into the Static Web App's invite screen.
-    return showLogin('Signed in as <strong>' + esc(currentUser.userDetails || currentUser.userId) +
+    // The invite screen is keyed on the email/username, NOT the user id — the
+    // id only works for `az staticwebapp users update`, and only once the
+    // account is already listed. Show both, each labelled for what it is.
+    const who = currentUser.userDetails || currentUser.userId;
+    return showLogin('Signed in as <strong>' + esc(who) +
       '</strong>, but this account has not been invited yet.<br><br>' +
-      'Add this user ID in the Azure portal under Static Web App → Role management, ' +
-      'with the role <strong>' + FAMILY_ROLE + '</strong>:<br>' +
-      '<code style="word-break:break-all">' + esc(currentUser.userId) + '</code>');
+      'Azure portal → Static Web App → <strong>Role management</strong> → <strong>Invite</strong>, ' +
+      'and invite <strong>' + esc(who) + '</strong> with the role <strong>' + FAMILY_ROLE +
+      '</strong>. Open the generated link to accept it.<br><br>' +
+      '<span style="opacity:.75">User ID (only for <code>az staticwebapp users update</code>): ' +
+      '<code style="word-break:break-all">' + esc(currentUser.userId) + '</code></span>');
   }
   document.getElementById('loginScreen').classList.remove('visible');
   if (!listenersAttached) {
