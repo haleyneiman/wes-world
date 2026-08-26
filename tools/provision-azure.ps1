@@ -37,34 +37,65 @@ if (-not $az) {
   if (Test-Path $candidate) { $az = $candidate } else { throw "Azure CLI not found." }
 }
 
+# Windows PowerShell turns anything a native command writes to stderr into a
+# terminating error while ErrorActionPreference is 'Stop', and az writes plenty
+# there even on success. Both helpers therefore judge success by the exit code
+# alone, with the preference relaxed around the call.
 function Invoke-Az {
-  param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Args)
-  $out = & $az @Args 2>&1
-  if ($LASTEXITCODE -ne 0) { throw "az $($Args -join ' ')`n$out" }
-  return ($out | Out-String)
+  param([Parameter(ValueFromRemainingArguments = $true)][string[]]$AzArgs)
+  $prev = $ErrorActionPreference
+  $ErrorActionPreference = 'Continue'
+  try {
+    $out = & $az @AzArgs 2>&1
+    if ($LASTEXITCODE -ne 0) { throw "az $($AzArgs -join ' ') failed:`n$($out | Out-String)" }
+    return ($out | Out-String)
+  } finally { $ErrorActionPreference = $prev }
 }
 
 # "does this resource exist?" — a non-zero exit is the answer, not a failure.
 function Test-Az {
-  param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Args)
-  & $az @Args -o none 2>$null | Out-Null
-  return ($LASTEXITCODE -eq 0)
+  param([Parameter(ValueFromRemainingArguments = $true)][string[]]$AzArgs)
+  $prev = $ErrorActionPreference
+  $ErrorActionPreference = 'Continue'
+  try {
+    & $az @AzArgs --output none 2>&1 | Out-Null
+    return ($LASTEXITCODE -eq 0)
+  } finally { $ErrorActionPreference = $prev }
 }
 
 Write-Host "`n=== Account ===" -ForegroundColor Cyan
-$acct = Invoke-Az account show -o json | ConvertFrom-Json
+$acct = Invoke-Az account show --output json | ConvertFrom-Json
 Write-Host ("Subscription : {0}" -f $acct.name)
 Write-Host ("Signed in as : {0}" -f $acct.user.name)
 
-# One free-tier Cosmos account is allowed per subscription. Creating a second
-# silently drops the discount, which is the single most expensive mistake here.
+# A brand-new subscription has no resource providers registered, and the first
+# create against one fails with MissingSubscriptionRegistration.
+Write-Host "`n=== Resource providers ===" -ForegroundColor Cyan
+foreach ($ns in @('Microsoft.DocumentDB', 'Microsoft.Web')) {
+  $state = (Invoke-Az provider show --namespace $ns --query registrationState --output tsv).Trim()
+  if ($state -eq 'Registered') {
+    Write-Host "$ns : already registered"
+  } else {
+    Write-Host "$ns : registering (this can take a couple of minutes)..."
+    Invoke-Az provider register --namespace $ns --wait --output none | Out-Null
+    Write-Host "$ns : registered"
+  }
+}
+
+# One free-tier Cosmos account is allowed per subscription, so a re-run must
+# never mint a second one — the second would be billable, which is exactly the
+# mistake this script exists to prevent.
 Write-Host "`n=== Checking for an existing free-tier Cosmos account ===" -ForegroundColor Cyan
-$existingFree = (Invoke-Az cosmosdb list --query "[?enableFreeTier].{name:name,rg:resourceGroup}" -o json | ConvertFrom-Json)
-if ($existingFree -and $existingFree.Count -gt 0) {
-  Write-Host "This subscription already has a free-tier Cosmos account:" -ForegroundColor Yellow
-  $existingFree | ForEach-Object { Write-Host ("  {0} (rg: {1})" -f $_.name, $_.rg) -ForegroundColor Yellow }
-  Write-Host "Re-run with -CosmosAccount <that name> to reuse it, or delete it first." -ForegroundColor Yellow
-  if (-not $CosmosAccount) { throw "Refusing to create a second Cosmos account that would not be free." }
+$existingFree = @(Invoke-Az cosmosdb list --query "[?enableFreeTier].{name:name,rg:resourceGroup}" --output json | ConvertFrom-Json)
+if (-not $CosmosAccount -and $existingFree.Count -gt 0) {
+  $mine = @($existingFree | Where-Object { $_.rg -eq $ResourceGroup })
+  if ($mine.Count -gt 0) {
+    $CosmosAccount = $mine[0].name
+    Write-Host ("Reusing the free-tier account already in {0}: {1}" -f $ResourceGroup, $CosmosAccount)
+  } else {
+    $existingFree | ForEach-Object { Write-Host ("  {0} (rg: {1})" -f $_.name, $_.rg) -ForegroundColor Yellow }
+    throw "This subscription already has a free-tier Cosmos account elsewhere. Re-run with -CosmosAccount <name> to reuse it, or delete it first."
+  }
 }
 
 if (-not $CosmosAccount) {
@@ -72,7 +103,7 @@ if (-not $CosmosAccount) {
 }
 
 Write-Host "`n=== Resource group: $ResourceGroup ===" -ForegroundColor Cyan
-Invoke-Az group create --name $ResourceGroup --location $Location -o none | Out-Null
+Invoke-Az group create --name $ResourceGroup --location $Location --output none | Out-Null
 Write-Host "ok"
 
 Write-Host "`n=== Cosmos account: $CosmosAccount ===" -ForegroundColor Cyan
@@ -83,12 +114,12 @@ if ($cosmosExists) {
   Write-Host "creating (a few minutes)..."
   Invoke-Az cosmosdb create --name $CosmosAccount --resource-group $ResourceGroup `
     --locations "regionName=$Location" --enable-free-tier true `
-    --default-consistency-level Session -o none | Out-Null
+    --default-consistency-level Session --output none | Out-Null
   Write-Host "ok"
 }
 
 # Verify the discount actually applied — it can only be set at creation time.
-$freeTier = (Invoke-Az cosmosdb show --name $CosmosAccount --resource-group $ResourceGroup --query enableFreeTier -o tsv).Trim()
+$freeTier = (Invoke-Az cosmosdb show --name $CosmosAccount --resource-group $ResourceGroup --query enableFreeTier --output tsv).Trim()
 if ($freeTier -ne 'true') {
   throw "Cosmos account $CosmosAccount does NOT have the free tier applied (enableFreeTier=$freeTier). " +
         "It cannot be added later. Delete the account and re-run."
@@ -99,7 +130,7 @@ Write-Host "`n=== Database: $DatabaseName (400 RU/s manual, shared) ===" -Foregr
 $dbExists = Test-Az cosmosdb sql database show --account-name $CosmosAccount --resource-group $ResourceGroup --name $DatabaseName
 if ($dbExists) { Write-Host "already exists" } else {
   Invoke-Az cosmosdb sql database create --account-name $CosmosAccount --resource-group $ResourceGroup `
-    --name $DatabaseName --throughput 400 -o none | Out-Null
+    --name $DatabaseName --throughput 400 --output none | Out-Null
   Write-Host "ok"
 }
 
@@ -107,7 +138,7 @@ Write-Host "`n=== Container: $ContainerName (partition key /kind) ===" -Foregrou
 $cExists = Test-Az cosmosdb sql container show --account-name $CosmosAccount --resource-group $ResourceGroup --database-name $DatabaseName --name $ContainerName
 if ($cExists) { Write-Host "already exists" } else {
   Invoke-Az cosmosdb sql container create --account-name $CosmosAccount --resource-group $ResourceGroup `
-    --database-name $DatabaseName --name $ContainerName --partition-key-path "/kind" -o none | Out-Null
+    --database-name $DatabaseName --name $ContainerName --partition-key-path "/kind" --output none | Out-Null
   Write-Host "ok"
 }
 
@@ -115,23 +146,23 @@ Write-Host "`n=== Static Web App: $SwaName (Free) ===" -ForegroundColor Cyan
 $swaExists = Test-Az staticwebapp show --name $SwaName --resource-group $ResourceGroup
 if ($swaExists) { Write-Host "already exists, reusing" } else {
   Invoke-Az staticwebapp create --name $SwaName --resource-group $ResourceGroup `
-    --location $Location --sku Free -o none | Out-Null
+    --location $Location --sku Free --output none | Out-Null
   Write-Host "ok"
 }
-$swaHost = (Invoke-Az staticwebapp show --name $SwaName --resource-group $ResourceGroup --query defaultHostname -o tsv).Trim()
+$swaHost = (Invoke-Az staticwebapp show --name $SwaName --resource-group $ResourceGroup --query defaultHostname --output tsv).Trim()
 
 Write-Host "`n=== Wiring the connection string into the app ===" -ForegroundColor Cyan
 $conn = (Invoke-Az cosmosdb keys list --name $CosmosAccount --resource-group $ResourceGroup `
-  --type connection-strings --query "connectionStrings[?keyKind=='Primary'].connectionString | [0]" -o tsv).Trim()
+  --type connection-strings --query "connectionStrings[?keyKind=='Primary'].connectionString | [0]" --output tsv).Trim()
 if (-not $conn) { throw "Could not read the Cosmos connection string." }
 Invoke-Az staticwebapp appsettings set --name $SwaName --resource-group $ResourceGroup `
-  --setting-names "COSMOS_CONNECTION_STRING=$conn" -o none | Out-Null
+  --setting-names "COSMOS_CONNECTION_STRING=$conn" --output none | Out-Null
 Write-Host "COSMOS_CONNECTION_STRING set (value not printed)"
 
 if (-not $SkipGitHubSecret) {
   Write-Host "`n=== Deployment token -> GitHub secret ===" -ForegroundColor Cyan
   $token = (Invoke-Az staticwebapp secrets list --name $SwaName --resource-group $ResourceGroup `
-    --query "properties.apiKey" -o tsv).Trim()
+    --query "properties.apiKey" --output tsv).Trim()
   if (-not $token) { throw "Could not read the deployment token." }
   # Piped, never echoed, so the token stays out of the console and shell history.
   $token | & gh secret set AZURE_STATIC_WEB_APPS_API_TOKEN --repo $Repo
