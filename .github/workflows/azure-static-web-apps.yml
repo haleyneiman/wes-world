@@ -49,11 +49,14 @@ jobs:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: upload
-          # The site is plain static files with no build step, so the repo root
-          # is published as-is. The API is a different story: it must be built,
-          # because @azure/cosmos comes from npm install and node_modules is not
-          # committed — so skip_app_build is set but skip_api_build is not.
-          app_location: "/"
+          # Only public/ is published. Pointing this at the repo root uploaded
+          # everything — docs, tools, and the api/node_modules that Oryx installs
+          # during the build — which failed content distribution.
+          #
+          # The site itself needs no build. The API does, because @azure/cosmos
+          # comes from npm install and node_modules is not committed, so
+          # skip_app_build is set and skip_api_build deliberately is not.
+          app_location: "public"
           api_location: "api"
           output_location: ""
           skip_app_build: true
