@@ -1,4 +1,7 @@
-const CACHE = 'wesworld-v4';
+// v5 — see the auth/API bypass below. The version bump matters: `activate`
+// deletes every cache that is not this one, which is what evicts the poisoned
+// /.auth/me entries left behind by v4.
+const CACHE = 'wesworld-v5';
 const ASSETS = ['/', '/index.html', '/manifest.json'];
 
 self.addEventListener('install', e => {
@@ -16,7 +19,18 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
-  if (e.request.url.includes('firebaseio.com') || e.request.url.includes('firebase')) return;
+  const url = new URL(e.request.url);
+  const sameOrigin = url.origin === self.location.origin;
+
+  // Auth and API traffic must never be cached or replayed. Both are per-session
+  // and change the moment someone signs in or logs anything. Caching /.auth/me
+  // is especially destructive: the signed-out response gets replayed after a
+  // successful login, so the app decides nobody is signed in and bounces
+  // straight back to the login screen, forever.
+  if (sameOrigin && (url.pathname.startsWith('/api/') || url.pathname.startsWith('/.auth/'))) return;
+
+  // Only GETs are cacheable; a POST must always reach the network.
+  if (e.request.method !== 'GET') return;
 
   // HTML: network-first, so a new deploy is picked up immediately.
   // Cache-first here would pin every installed device to the version it
@@ -39,6 +53,9 @@ self.addEventListener('fetch', e => {
     );
     return;
   }
+
+  // Static assets (icons, manifest): cache-first is safe, they are versioned by
+  // deploy and served with long cache headers anyway.
   e.respondWith(
     caches.match(e.request).then(r => r || fetch(e.request).then(res => {
       const c = res.clone(); caches.open(CACHE).then(ca=>ca.put(e.request,c)); return res;
