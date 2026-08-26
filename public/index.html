@@ -603,22 +603,79 @@ const mlToOz = ml => ml/29.5735;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GROWTH CURVES
+//
+// WHO 2006 is stored as its published LMS parameters — L (skew), M (median),
+// S (coefficient of variation) — rather than as a grid of percentile values.
+// The hand-entered grid this replaces had drifted high everywhere above the
+// 25th: its 4mo median read 7.30 kg against an actual 7.00, and the gap widened
+// with age (12mo p75 was 0.69 kg heavy), so every corrected-age percentile came
+// out several points low. LMS also scores a measurement exactly rather than
+// interpolating linearly between printed bands, which is lossy on a skewed
+// distribution like weight. The chart's percentile curves are generated back
+// out of the same parameters, so a label and the line it sits against cannot
+// disagree.
+//
+// Fenton 2013 is published as percentiles rather than LMS, so the preterm
+// tables stay band-based and fall back to interpolating between bands.
 // ─────────────────────────────────────────────────────────────────────────────
-const WHO_BOYS = {
-  0:{p3:2.50,p10:2.84,p25:3.09,p50:3.35,p75:3.63,p90:3.92,p97:4.21},
-  1:{p3:3.36,p10:3.77,p25:4.12,p50:4.47,p75:4.87,p90:5.23,p97:5.58},
-  2:{p3:4.32,p10:4.80,p25:5.23,p50:5.67,p75:6.15,p90:6.60,p97:7.05},
-  3:{p3:5.03,p10:5.57,p25:6.06,p50:6.57,p75:7.11,p90:7.62,p97:8.10},
-  4:{p3:5.61,p10:6.19,p25:6.74,p50:7.30,p75:7.90,p90:8.45,p97:8.99},
-  5:{p3:6.05,p10:6.67,p25:7.25,p50:7.84,p75:8.49,p90:9.07,p97:9.65},
-  6:{p3:6.44,p10:7.09,p25:7.71,p50:8.34,p75:9.02,p90:9.65,p97:10.27},
-  7:{p3:6.76,p10:7.44,p25:8.09,p50:8.76,p75:9.48,p90:10.14,p97:10.79},
-  8:{p3:7.03,p10:7.73,p25:8.41,p50:9.10,p75:9.86,p90:10.56,p97:11.24},
-  9:{p3:7.26,p10:7.99,p25:8.69,p50:9.41,p75:10.19,p90:10.92,p97:11.63},
-  10:{p3:7.47,p10:8.22,p25:8.95,p50:9.69,p75:10.50,p90:11.26,p97:12.00},
-  11:{p3:7.65,p10:8.43,p25:9.18,p50:9.95,p75:10.79,p90:11.58,p97:12.34},
-  12:{p3:7.82,p10:8.62,p25:9.39,p50:10.20,p75:11.07,p90:11.88,p97:12.67},
+const PCT_BANDS=[{key:'p3',pct:3,z:-1.88079},{key:'p10',pct:10,z:-1.28155},
+  {key:'p25',pct:25,z:-0.67449},{key:'p50',pct:50,z:0},{key:'p75',pct:75,z:0.67449},
+  {key:'p90',pct:90,z:1.28155},{key:'p97',pct:97,z:1.88079}];
+// X = M(1 + LSZ)^(1/L), and its inverse. L is never 0 in the tables below, but
+// the lognormal limit is the defined behaviour there and costs one branch.
+function lmsValue(L,M,S,z){return L===0?M*Math.exp(S*z):M*Math.pow(1+L*S*z,1/L);}
+function lmsZ(L,M,S,x){return L===0?Math.log(x/M)/S:(Math.pow(x/M,L)-1)/(L*S);}
+// Abramowitz & Stegun 7.1.26 — error under 1.5e-7, well inside the rounding of a
+// whole-number percentile.
+function erf(x){
+  const sign=x<0?-1:1;x=Math.abs(x);
+  const t=1/(1+0.3275911*x);
+  const y=1-((((1.061405429*t-1.453152027)*t+1.421413741)*t-0.284496736)*t+0.254829592)
+    *t*Math.exp(-x*x);
+  return sign*y;
+}
+function normCdf(z){return 0.5*(1+erf(z/Math.SQRT2));}
+// Maps a generated band table back to the parameters behind it, so getPctLabel
+// can score exactly against a table the chart could only draw in bands.
+const LMS_FOR=new Map();
+function bandsFromLMS(lms){
+  const out={};
+  Object.keys(lms).forEach(k=>{
+    const [L,M,S]=lms[k],row={};
+    PCT_BANDS.forEach(b=>row[b.key]=+lmsValue(L,M,S,b.z).toFixed(2));
+    out[k]=row;
+  });
+  LMS_FOR.set(out,lms);
+  return out;
+}
+
+// WHO 2006 boys, [L,M,S] per completed month, 0–12mo. Length and head
+// circumference carry L=1 at every age — both are normally distributed, unlike
+// weight, whose positive L is what made linear band interpolation inaccurate.
+const WHO_WEIGHT_LMS={
+  0:[0.3487,3.3464,0.14602], 1:[0.2297,4.4709,0.13395], 2:[0.1970,5.5675,0.12385],
+  3:[0.1738,6.3762,0.11727], 4:[0.1553,7.0023,0.11316], 5:[0.1395,7.5105,0.11080],
+  6:[0.1257,7.9340,0.10958], 7:[0.1134,8.2970,0.10902], 8:[0.1021,8.6151,0.10882],
+  9:[0.0917,8.9014,0.10881], 10:[0.0820,9.1649,0.10891], 11:[0.0730,9.4122,0.10906],
+  12:[0.0644,9.6479,0.10925],
 };
+const WHO_LEN_LMS={
+  0:[1,49.8842,0.03795], 1:[1,54.7244,0.03557], 2:[1,58.4249,0.03424],
+  3:[1,61.4292,0.03328], 4:[1,63.8860,0.03257], 5:[1,65.9026,0.03204],
+  6:[1,67.6236,0.03165], 7:[1,69.1645,0.03139], 8:[1,70.5994,0.03124],
+  9:[1,72.0000,0.03117], 10:[1,73.2812,0.03118], 11:[1,74.5388,0.03125],
+  12:[1,75.7488,0.03137],
+};
+const WHO_HC_LMS={
+  0:[1,34.4618,0.03686], 1:[1,37.2759,0.03258], 2:[1,39.1285,0.03077],
+  3:[1,40.5135,0.02986], 4:[1,41.6317,0.02931], 5:[1,42.5576,0.02895],
+  6:[1,43.3306,0.02870], 7:[1,43.9803,0.02852], 8:[1,44.5300,0.02839],
+  9:[1,45.0000,0.02829], 10:[1,45.4046,0.02822], 11:[1,45.7573,0.02817],
+  12:[1,46.0661,0.02813],
+};
+const WHO_BOYS=bandsFromLMS(WHO_WEIGHT_LMS);
+const WHO_BOYS_LEN=bandsFromLMS(WHO_LEN_LMS);
+const WHO_BOYS_HC=bandsFromLMS(WHO_HC_LMS);
 const FENTON_BOYS = {
   22:{p3:0.36,p10:0.42,p50:0.50,p90:0.59,p97:0.65},
   23:{p3:0.43,p10:0.50,p50:0.60,p90:0.70,p97:0.78},
@@ -647,25 +704,6 @@ const FENTON_BOYS = {
   43:{p3:3.07,p10:3.52,p50:4.05,p90:4.62,p97:5.07},
   44:{p3:3.18,p10:3.66,p50:4.20,p90:4.79,p97:5.26},
 };
-
-function getPct(kg,months){
-  const keys=Object.keys(WHO_BOYS).map(Number).sort((a,b)=>a-b);
-  let k=keys[0]; for(const x of keys) if(x<=months) k=x;
-  const p=WHO_BOYS[k];
-  if(kg<=p.p3)return'<3rd';if(kg<=p.p10)return'3–10th';
-  if(kg<=p.p25)return'10–25th';if(kg<=p.p50)return'25–50th';
-  if(kg<=p.p75)return'50–75th';if(kg<=p.p90)return'75–90th';
-  if(kg<=p.p97)return'90–97th';return'>97th';
-}
-function getFentonPct(kg,gaWeeks){
-  const keys=Object.keys(FENTON_BOYS).map(Number).sort((a,b)=>a-b);
-  let k=keys[0]; for(const x of keys) if(x<=gaWeeks) k=x;
-  const p=FENTON_BOYS[k];
-  if(!p)return'N/A';
-  if(kg<=p.p3)return'<3rd';if(kg<=p.p10)return'3–10th';
-  if(kg<=p.p50)return'10–50th';if(kg<=p.p90)return'50–90th';
-  if(kg<=p.p97)return'90–97th';return'>97th';
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // LOCAL UI STATE (not synced — per-device preferences)
@@ -965,7 +1003,14 @@ function targetStatus(oz) {
 // SVG CHARTS
 // ─────────────────────────────────────────────────────────────────────────────
 // ─────────────────────────────────────────────────────────────────────────────
-// GROWTH TABLES — length & head circumference derived from base medians
+// PRETERM LENGTH & HEAD CIRCUMFERENCE — Fenton 2013 medians, banded by ratio
+//
+// Fenton publishes percentiles rather than LMS, and only the medians were to
+// hand for these two metrics, so the bands are a fixed fraction of the median.
+// That is an approximation — real spread is not a constant share of the median
+// at every age — and it is why these two curves are coarser than the WHO ones.
+// The preterm range is behind us; swap in published Fenton bands if it ever
+// matters again. WHO length and head circumference are exact, above.
 // ─────────────────────────────────────────────────────────────────────────────
 function tableFromBase(base,ratios){
   const out={};
@@ -973,17 +1018,11 @@ function tableFromBase(base,ratios){
     Object.keys(ratios).forEach(p=>row[p]=+(v*ratios[p]).toFixed(2));out[k]=row;});
   return out;
 }
-const LEN_RATIOS_WHO={p3:0.90,p10:0.94,p25:0.97,p50:1,p75:1.03,p90:1.06,p97:1.09};
 const LEN_RATIOS_FENTON={p3:0.90,p10:0.94,p50:1,p90:1.06,p97:1.10};
-const HC_RATIOS_WHO={p3:0.93,p10:0.96,p25:0.98,p50:1,p75:1.02,p90:1.04,p97:1.07};
 const HC_RATIOS_FENTON={p3:0.92,p10:0.95,p50:1,p90:1.05,p97:1.08};
-const WHO_LEN_BASE={0:49.9,1:54.7,2:58.4,3:61.4,4:63.9,5:65.9,6:67.6,7:69.2,8:70.6,9:72.0,10:73.3,11:74.5,12:75.7};
-const WHO_HC_BASE={0:34.5,1:37.3,2:39.1,3:40.5,4:41.6,5:42.6,6:43.3,7:44.0,8:44.5,9:45.0,10:45.4,11:45.8,12:46.1};
 const FENTON_LEN_BASE={30:39.9,31:40.9,32:41.8,33:42.7,34:43.6,35:44.5,36:45.4,37:46.2,38:47.0,39:47.7,40:48.4,41:49.0,42:49.5,43:49.9,44:50.2};
 const FENTON_HC_BASE={30:27.7,31:28.5,32:29.3,33:30.0,34:30.7,35:31.4,36:32.1,37:32.6,38:33.1,39:33.6,40:34.0,41:34.3,42:34.6,43:34.8,44:35.0};
-const WHO_BOYS_LEN=tableFromBase(WHO_LEN_BASE,LEN_RATIOS_WHO);
 const FENTON_BOYS_LEN=tableFromBase(FENTON_LEN_BASE,LEN_RATIOS_FENTON);
-const WHO_BOYS_HC=tableFromBase(WHO_HC_BASE,HC_RATIOS_WHO);
 const FENTON_BOYS_HC=tableFromBase(FENTON_HC_BASE,HC_RATIOS_FENTON);
 
 function ordinal(n){const s=['th','st','nd','rd'],v=n%100;return n+(s[(v-20)%10]||s[v]||s[0]);}
@@ -1007,24 +1046,46 @@ function pctRowAt(src,keys,x){
   Object.keys(a).forEach(k=>{if(a[k]!=null&&b[k]!=null)row[k]=a[k]+f*(b[k]-a[k]);});
   return row;
 }
-// Interpolates between the published bands for an exact percentile ("42nd")
-// rather than reporting a range ("25–50th").
+// L, M and S interpolated to the exact age, the same way pctRowAt interpolates
+// a band row, so a measurement between two monthly rows is scored against the
+// curve the chart draws through them.
+function lmsAt(lms,keys,x){
+  if(!keys.length)return null;
+  const first=keys[0],last=keys[keys.length-1];
+  if(x>last+1e-9)return null;
+  if(!(x>first))return lms[first];
+  let i=0;while(i<keys.length-1&&keys[i+1]<=x)i++;
+  if(i>=keys.length-1)return lms[last];
+  const a=lms[keys[i]],b=lms[keys[i+1]],f=(x-keys[i])/(keys[i+1]-keys[i]);
+  return [a[0]+f*(b[0]-a[0]),a[1]+f*(b[1]-a[1]),a[2]+f*(b[2]-a[2])];
+}
+// Reports an exact percentile ("42nd") rather than a range ("25–50th"). WHO
+// tables score straight off the distribution; Fenton, published as percentiles
+// only, interpolates between its printed bands. Both clamp at the 3rd and 97th,
+// the outermost curves the chart draws.
 function getPctLabel(val,src,keys,x){
   if(val==null||isNaN(val))return 'N/A';
+  const lms=LMS_FOR.get(src);
+  if(lms){
+    const p=lmsAt(lms,keys,x);if(!p)return 'N/A';
+    const pct=100*normCdf(lmsZ(p[0],p[1],p[2],val));
+    if(pct<3)return '<3rd';
+    if(pct>97)return '>97th';
+    return ordinal(Math.round(pct));
+  }
   const p=pctRowAt(src,keys,x);if(!p)return 'N/A';
-  const bands=[[3,'p3'],[10,'p10'],[25,'p25'],[50,'p50'],[75,'p75'],[90,'p90'],[97,'p97']]
-    .filter(b=>p[b[1]]!=null);
+  const bands=PCT_BANDS.filter(b=>p[b.key]!=null);
   if(!bands.length)return 'N/A';
-  if(val<=p[bands[0][1]])return '<'+ordinal(bands[0][0]);
+  if(val<=p[bands[0].key])return '<'+ordinal(bands[0].pct);
   for(let i=1;i<bands.length;i++){
-    const [pctA,keyA]=bands[i-1],[pctB,keyB]=bands[i];
-    if(val<=p[keyB]){
-      const vA=p[keyA],vB=p[keyB];
+    const a=bands[i-1],b=bands[i];
+    if(val<=p[b.key]){
+      const vA=p[a.key],vB=p[b.key];
       const frac=vB===vA?0:(val-vA)/(vB-vA);
-      return ordinal(Math.round(pctA+frac*(pctB-pctA)));
+      return ordinal(Math.round(a.pct+frac*(b.pct-a.pct)));
     }
   }
-  return '>'+ordinal(bands[bands.length-1][0]);
+  return '>'+ordinal(bands[bands.length-1].pct);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
