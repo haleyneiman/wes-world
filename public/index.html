@@ -1026,6 +1026,32 @@ const FENTON_BOYS_LEN=tableFromBase(FENTON_LEN_BASE,LEN_RATIOS_FENTON);
 const FENTON_BOYS_HC=tableFromBase(FENTON_HC_BASE,HC_RATIOS_FENTON);
 
 function ordinal(n){const s=['th','st','nd','rd'],v=n%100;return n+(s[(v-20)%10]||s[v]||s[0]);}
+// Chronological age is not stored on a measurement, so derive it from the date.
+// ts is exact and present on everything logged or imported; the seeded NICU rows
+// predate it and fall back to gaWeeks, which costs up to a third of a day since
+// that field is rounded to 0.1w. corrMonths can't serve as the fallback — it
+// clamps at zero for anything before the due date. Clamped at zero itself for
+// the same reason corrMonths is: the seeded rows carry a gaWeeks a few days
+// short of the real one, which would put birth at a negative age and drop it
+// off the left of the chart.
+function chronoMonthsOf(w){
+  if(w.ts!=null&&!isNaN(+w.ts))
+    return +(Math.max(0,Math.floor((+w.ts-BIRTH)/864e5))/30.44).toFixed(2);
+  const ga=+w.gaWeeks;
+  if(w.gaWeeks==null||isNaN(ga))return null;
+  return +(Math.max(0,ga*7-(BIRTH_GA_WEEKS*7+BIRTH_GA_DAYS))/30.44).toFixed(2);
+}
+// The three growth views differ only in which age a point is plotted at and
+// which table it is scored against, so that lives here instead of in a ternary
+// at every call site. 'chrono' shares WHO with 'who' — same curves, real age.
+function growthX(w,mode){
+  return mode==='fenton'?w.gaWeeks:mode==='chrono'?chronoMonthsOf(w):w.corrMonths;
+}
+function growthAgeLabel(w,mode){
+  if(mode==='fenton')return `${Math.floor(w.gaWeeks)}w ${Math.round((w.gaWeeks-Math.floor(w.gaWeeks))*7)}d GA`;
+  if(mode==='chrono')return `${(+chronoMonthsOf(w)||0).toFixed(1)}mo actual`;
+  return `${(+w.corrMonths||0).toFixed(1)}mo corrected`;
+}
 // The published tables list a row per whole month (WHO) or week (Fenton), but a
 // measurement lands between rows. The chart draws each percentile curve as a
 // straight line between table ages, so reading the label off the row below the
@@ -1536,7 +1562,7 @@ function buildGrowthChart(logs,mode,valueKey,tables,fmt,axisFmt,viewLo,viewHi){
   // drop out-of-view points rather than drawing them outside the plot area.
   const pts=logs.filter(w=>{
     if(w[valueKey]==null||isNaN(w[valueKey]))return false;
-    const x=mode==='fenton'?w.gaWeeks:w.corrMonths;
+    const x=growthX(w,mode);
     return x!=null&&!isNaN(x)&&x>=minX&&x<=maxX;
   });
   const curveMax=Math.max(...curveRows.map(r=>r.row.p97).filter(v=>v!=null));
@@ -1576,21 +1602,20 @@ function buildGrowthChart(logs,mode,valueKey,tables,fmt,axisFmt,viewLo,viewHi){
     return {points,stroke,sw,dash,label,fw,
       leftPct:((xS(lr.x)+3)/W*100).toFixed(1),topPct:((yS(lr.row[pct])+3.5)/H*100).toFixed(1)};
   });
-  const valPoints=pts.map(w=>{const x=mode==='fenton'?w.gaWeeks:w.corrMonths;
+  const valPoints=pts.map(w=>{const x=growthX(w,mode);
     return `${xS(x).toFixed(1)},${yS(w[valueKey]).toFixed(1)}`;}).join(' ');
   const valDots=pts.map(w=>{
-    const x=mode==='fenton'?w.gaWeeks:w.corrMonths;
+    const x=growthX(w,mode);
     const valueText=fmt(w[valueKey]);
     // Percentile against the full table, not just the zoomed slice.
     const pct=getPctLabel(w[valueKey],src,allKeys,x);
-    const ageLabel=mode==='fenton'
-      ?`${Math.floor(w.gaWeeks)}w ${Math.round((w.gaWeeks-Math.floor(w.gaWeeks))*7)}d GA`
-      :`${(+w.corrMonths||0).toFixed(1)}mo corrected`;
+    const ageLabel=growthAgeLabel(w,mode);
     return {cx:xS(x).toFixed(1),cy:yS(w[valueKey]).toFixed(1),
       date:w.date,valueText,pct,ageLabel,key:w._key};
   });
   return {W,H,padL:P.l,padR:P.r,gridLines,xTicks,curves,valPoints,valDots,
-    xAxisLabel:mode==='fenton'?'Gestational age (weeks)':'Corrected age (months)'};
+    xAxisLabel:mode==='fenton'?'Gestational age (weeks)'
+      :mode==='chrono'?'Actual age (months)':'Corrected age (months)'};
 }
 
 function growthChartInner(gc){
@@ -2122,7 +2147,10 @@ function render(){
   // ══════════════════════════════════════════════════════════════ GROWTH
   if(ui.tab==='growth'){
     const metric=GROWTH_METRICS[ui.growthMetric]||GROWTH_METRICS.weight;
-    const chartMode=ui.growthMode==='gestational'?'fenton':'who';
+    // 'actual' plots against the WHO curves at his real age rather than his
+    // corrected one — the same measurement, read the way a term baby's would be.
+    const chartMode=ui.growthMode==='gestational'?'fenton'
+      :ui.growthMode==='actual'?'chrono':'who';
     // Sort chronologically — imported rows interleave with existing ones, and the
     // curve polyline follows array order, so unsorted data draws a zigzag.
     const logs=shared.weightLogs.slice().sort((a,b)=>
@@ -2130,7 +2158,7 @@ function render(){
     // Default view fits the actual measurements (with padding) instead of the
     // full table range, so a preemie's early points aren't crushed to one edge.
     const fullMin=chartMode==='fenton'?30:0,fullMax=chartMode==='fenton'?44:12;
-    const dataXs=logs.map(w=>chartMode==='fenton'?w.gaWeeks:w.corrMonths)
+    const dataXs=logs.map(w=>growthX(w,chartMode))
       .filter(x=>x!=null&&!isNaN(x)&&x>=fullMin&&x<=fullMax);
     const pad=Math.max((fullMax-fullMin)*0.06,chartMode==='fenton'?1:0.5);
     const autoLo=dataXs.length?Math.max(fullMin,Math.min(...dataXs)-pad):fullMin;
@@ -2150,7 +2178,7 @@ function render(){
     const srcKeys=Object.keys(src).map(Number).sort((a,b)=>a-b);
     const withVal=logs.filter(w=>w[metric.key]!=null&&!isNaN(w[metric.key]));
     const last=withVal[withVal.length-1],prev=withVal[withVal.length-2];
-    const lastX=last?(ui.growthMode==='gestational'?last.gaWeeks:last.corrMonths):0;
+    const lastX=last?growthX(last,chartMode):0;
     let deltaText='—';
     if(last&&prev){
       if(metric.key==='kg'){
@@ -2191,11 +2219,14 @@ function render(){
             <button class="btn-zoom" ${canZoomIn?'':'disabled'} onclick="zoomGrowth(1)">+</button>
             <button class="chip-sm" onclick="resetGrowthZoom()">Fit to data</button>
             ${chipHtml('Corrected',ui.growthMode==='corrected','#12B886',"setUI('growthMode','corrected')",true)}
+            ${chipHtml('Actual',ui.growthMode==='actual','#12B886',"setUI('growthMode','actual')",true)}
             ${chipHtml('Preemie',ui.growthMode==='gestational','#12B886',"setUI('growthMode','gestational')",true)}
           </div>
         </div>
         <div class="card-sub" style="margin-bottom:8px">${chartMode==='fenton'
           ?`Fenton preterm growth curve (percentiles by gestational age) — ${metric.sourceName}`
+          :chartMode==='chrono'
+          ?`WHO growth curve (percentiles by actual age, uncorrected) — ${metric.sourceName}`
           :`WHO growth curve (percentiles by corrected age) — ${metric.sourceName}`}</div>
         <div class="card-hint">Tap a point for its date, age, value, and percentile ·
           pinch or drag the chart to zoom the age range</div>
@@ -2214,19 +2245,18 @@ function render(){
       <div class="card">
         <div class="card-head" style="margin-bottom:14px">
           <div class="card-title">Measurement log</div>
-          <div class="chip-row-sm">
+          <div class="chip-row-sm" style="flex-wrap:wrap">
             ${chipHtml('Corrected',ui.growthMode==='corrected','#12B886',"setUI('growthMode','corrected')",true)}
+            ${chipHtml('Actual',ui.growthMode==='actual','#12B886',"setUI('growthMode','actual')",true)}
             ${chipHtml('Preemie',ui.growthMode==='gestational','#12B886',"setUI('growthMode','gestational')",true)}
           </div>
         </div>
         <div class="scroll-log">
         <div class="log-list">
           ${logs.slice().reverse().map(w=>{
-            const x=ui.growthMode==='gestational'?w.gaWeeks:w.corrMonths;
+            const x=growthX(w,chartMode);
             const has=w[metric.key]!=null&&!isNaN(w[metric.key]);
-            const ageLabel=ui.growthMode==='gestational'
-              ?`${Math.floor(w.gaWeeks)}w ${Math.round((w.gaWeeks-Math.floor(w.gaWeeks))*7)}d GA`
-              :`${(+w.corrMonths||0).toFixed(1)}mo corrected`;
+            const ageLabel=growthAgeLabel(w,chartMode);
             return `<div class="log-row">
               <div class="log-main${w._key?' log-edit':''}"${w._key?` onclick="openEditGrowth('${w._key}')"`:''}>
                 <div class="log-label">${esc(w.date)} — ${has?esc(metric.fmt(w[metric.key])):'not recorded'}</div>
