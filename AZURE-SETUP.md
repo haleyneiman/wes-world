@@ -125,9 +125,20 @@ re-running imports the same history once. Safe to repeat if it stops half way.
 
 ## 5. Go live
 
-This work is on the `azure-backend` branch. `master` still runs the Firebase
-backend, so **merge only once steps 1–4 are done** — merging earlier deploys an
-app whose backend doesn't exist yet.
+This work is on the `azure-backend` branch. Deploy the branch on demand to try it
+before switching `master` over:
+
+```bash
+gh workflow run "Deploy to Azure Static Web Apps" --ref azure-backend
+gh run watch
+```
+
+The deploy prints the site URL at the end (`Visit your site at: ...`). That
+`*.azurestaticapps.net` address is the Azure app — the old Netlify URL keeps
+serving the previous Firebase version until Netlify is deleted, so check which
+one is in the address bar before concluding something is broken.
+
+Once you are happy, switch master over:
 
 ```bash
 git checkout master && git merge azure-backend && git push origin master
@@ -140,6 +151,21 @@ Once you've used the Azure app for a few days and are happy:
 - **Netlify** — delete the site.
 - **Firebase** — delete the Realtime Database and disable Authentication.
   Keep the export file somewhere safe first.
+
+---
+
+## Repository layout
+
+| Path | Published? | What it is |
+|---|---|---|
+| `public/` | **yes**, as the site root | the app, service worker, manifest, icons, and `staticwebapp.config.json` |
+| `api/` | as managed Functions | the Cosmos-backed API |
+| `tools/` | no | the one-off Firebase migration script |
+| `AZURE-SETUP.md` | no | this file |
+
+`app_location` points at `public/` rather than the repo root on purpose: pointing
+it at the root uploads the docs, the tools, and `api/node_modules` as website
+content, which fails deployment at "content distribution".
 
 ---
 
