@@ -82,7 +82,14 @@ async function main() {
     console.error('Set COSMOS_CONNECTION_STRING before running with --write.');
     process.exit(1);
   }
-  const { CosmosClient } = require('@azure/cosmos');
+  // The SDK is a dependency of the Functions app, so it lives in
+  // api/node_modules rather than at the repo root.
+  let CosmosClient;
+  try {
+    ({ CosmosClient } = require('@azure/cosmos'));
+  } catch (e) {
+    ({ CosmosClient } = require(path.join(__dirname, '..', 'api', 'node_modules', '@azure', 'cosmos')));
+  }
   const container = new CosmosClient(conn)
     .database(process.env.COSMOS_DATABASE || 'wesworld')
     .container(process.env.COSMOS_CONTAINER || 'entries');
