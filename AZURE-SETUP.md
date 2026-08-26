@@ -17,20 +17,52 @@ Functions as a header.
 
 ## 1. Cosmos DB
 
+This is two separate steps — the account first, then the database inside it. The
+throughput settings live in the *second* one, which is easy to go looking for too
+early.
+
+### 1a. The account
+
 Create an **Azure Cosmos DB for NoSQL** account.
 
-- **Apply Free Tier Discount: Apply.** This is the whole ball game: 1000 RU/s
-  and 25 GB free for the lifetime of the account. One free-tier account is
-  allowed per subscription.
-- Inside the account create:
-  - Database `wesworld` — **Manual** throughput, **400 RU/s** (inside the free
-    grant; autoscale starts at 1000 and leaves no headroom)
-  - Container `entries`, **partition key `/kind`**
+- **Capacity mode: Provisioned throughput.** Not Serverless — the free tier only
+  applies to provisioned throughput, so Serverless would bill you (pennies, but
+  not zero).
+- **Apply Free Tier Discount: Apply.** This is the whole ball game: 1000 RU/s and
+  25 GB free for the lifetime of the account. One free-tier account is allowed
+  per subscription.
+
+### 1b. The database and container
+
+Once the account exists, open **Data Explorer → New Container**, which creates
+both at once:
+
+- Database id `wesworld`, **Share throughput across containers** ticked
+- Throughput **Manual**, **400 RU/s** — comfortably inside the free 1000.
+  (Autoscale's floor for a shared database is a 1000 RU/s maximum, which uses up
+  the entire free grant with nothing spare.)
+- Container id `entries`, **partition key `/kind`**
 
 The app code deliberately never creates these. Provisioning throughput from code
 is the usual way a "free" account quietly starts billing.
 
-Copy a **primary connection string** from Keys — you'll need it twice.
+### 1c. The connection string
+
+On the **account** resource (not the database, and not the Static Web App) →
+**Settings → Keys**. The connection strings are *below* the URI and Primary Key
+fields on that blade, which is easy to scroll past; some portal versions file
+"Keys" under a **Security** heading.
+
+If the portal is being unhelpful, Cloud Shell (the `>_` icon in the top bar) has
+`az` preinstalled:
+
+```bash
+az cosmosdb keys list --name <account-name> --resource-group <rg> --type connection-strings
+```
+
+Take the **Primary SQL Connection String**. You'll need it twice: once as a
+Static Web App environment variable (step 2), once for the data migration
+(step 4).
 
 ## 2. Static Web App
 
