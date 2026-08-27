@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Wes World">
+  <title>Wes World</title>
+  <!--
+    Master icon. Square full-bleed on purpose: iOS and Android apply their own
+    corner mask, so baking rounded corners in here would round them twice and
+    show the page background in the gaps.
+    Colours track the app palette in index.html: accent/accent-dark for the
+    field, orange for the bill, ink for the eye.
+  -->
+  <defs>
+    <linearGradient id="field" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4A85F5"/>
+      <stop offset="1" stop-color="#1E4FC0"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#field)"/>
+  <!-- Neck runs off the bottom edge; the root viewBox clips it. -->
+  <g transform="translate(-26,6)">
+    <path d="M198 540 C190 400 206 262 252 220 C268 205 292 205 305 222 C285 255 276 380 278 540 Z" fill="#FFFFFF"/>
+    <ellipse cx="310" cy="205" rx="68" ry="58" fill="#FFFFFF"/>
+    <path d="M360 182 C400 178 440 192 452 206 C455 210 453 217 446 220 C420 232 380 233 358 225 Z" fill="#F97316"/>
+    <circle cx="334" cy="190" r="9" fill="#1A1A2E"/>
+  </g>
+</svg>

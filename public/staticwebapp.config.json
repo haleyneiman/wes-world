@@ -2,7 +2,7 @@
   "platform": { "apiRuntime": "node:20" },
   "navigationFallback": {
     "rewrite": "/index.html",
-    "exclude": ["/*.{png,json,js,webmanifest}"]
+    "exclude": ["/*.{png,svg,json,js,webmanifest}"]
   },
   "mimeTypes": {
     ".json": "application/json",
@@ -44,6 +44,22 @@
     {
       "route": "/icon-512.png",
       "headers": { "cache-control": "public, max-age=2592000" }
+    },
+    {
+      "route": "/icon-192.v2.png",
+      "headers": { "cache-control": "public, max-age=31536000, immutable" }
+    },
+    {
+      "route": "/icon-512.v2.png",
+      "headers": { "cache-control": "public, max-age=31536000, immutable" }
+    },
+    {
+      "route": "/icon.svg",
+      "headers": { "cache-control": "public, max-age=3600" }
+    },
+    {
+      "route": "/favicon-32.png",
+      "headers": { "cache-control": "public, max-age=3600" }
     }
   ],
   "globalHeaders": {

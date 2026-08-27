@@ -1,7 +1,13 @@
-// v5 — see the auth/API bypass below. The version bump matters: `activate`
-// deletes every cache that is not this one, which is what evicts the poisoned
-// /.auth/me entries left behind by v4.
-const CACHE = 'wesworld-v5';
+// v6 — see the auth/API bypass below. The version bump matters: `activate`
+// deletes every cache that is not this one. v5 evicted the poisoned /.auth/me
+// entries left behind by v4; v6 evicts the stale manifest.json precached below,
+// which is what points at the app icon.
+//
+// Note the bump alone is NOT enough to change an already-shipped asset: a fresh
+// cache re-fetches through the HTTP cache, so a still-fresh long-max-age entry
+// comes straight back and gets re-cached. That is why the icons are versioned
+// in the filename (icon-512.v2.png) — a new URL cannot have a stale entry.
+const CACHE = 'wesworld-v6';
 const ASSETS = ['/', '/index.html', '/manifest.json'];
 
 self.addEventListener('install', e => {
